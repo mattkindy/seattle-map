@@ -95,11 +95,20 @@ export function buildGraph(elements) {
     edgeW.push(len);
   }
 
+  const DRIVABLE = new Set([
+    "motorway", "trunk", "primary", "secondary", "tertiary",
+    "unclassified", "residential", "living_street",
+    "motorway_link", "trunk_link", "primary_link",
+    "secondary_link", "tertiary_link",
+  ]);
   for (const el of elements) {
     if (el.type !== "way" || !el.nodes || el.nodes.length < 2) {
       continue;
     }
     const tags = el.tags ?? {};
+    if (!DRIVABLE.has(tags.highway)) {
+      continue;
+    }
     const speed = parseMaxspeed(tags.maxspeed, tags.highway) * MPH;
     const oneway =
       tags.oneway === "yes" ||

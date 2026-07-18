@@ -33,7 +33,7 @@ const DRIVABLE =
 const query = `[out:json][timeout:240];
 way["highway"~"^(${DRIVABLE})$"]["access"!~"^(no|private)$"](${bbox});
 (._;>;);
-out skel qt;`;
+out qt;`;
 
 const ENDPOINTS = [
   "https://overpass-api.de/api/interpreter",
