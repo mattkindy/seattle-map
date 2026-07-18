@@ -36,18 +36,17 @@
   <p class="kicker">Methodology</p>
   <h1>How We Made This Map</h1>
   <p class="lede">
-    Turning 130,000 driving times into one stretched picture of Seattle
-    takes five steps. None requires more than high-school math to
-    follow. <a href="./index.html">Back to the map.</a>
+    How 130,000 driving times become one stretched picture of Seattle,
+    in five steps. <a href="./index.html">Back to the map.</a>
   </p>
 
   <h2>Step 1: Sample the city</h2>
   <p>
-    Measuring the travel time from everywhere to everywhere is
-    impossible, so the city is reduced to a honeycomb of roughly 500
-    sample points, one every 600 meters or so, with the ones that fall
-    in water discarded. Everything that follows concerns these points;
-    the rest of the city moves with its nearest neighbors.
+    We can't measure the travel time from everywhere to everywhere, so
+    we start by covering the city with a honeycomb of about 500 sample
+    points, one every 600 meters, and throwing out the ones that land
+    in water. From here on, everything happens to these points. The
+    rest of the city just moves along with its nearest points.
   </p>
   <figure>
     <svg viewBox="0 0 700 240">
@@ -77,13 +76,14 @@
 
   <h2>Step 2: Time every pair</h2>
   <p>
-    Each pair of points gets a driving time, from a routing service or,
-    in the current version, from a simplified model of Seattle traffic.
-    With 500 points that is about 130,000 numbers, kept in a square
-    table: row for the start, column for the destination. One wrinkle:
-    the drive from A to B rarely takes exactly as long as the drive
-    back, and a flat drawing can show only one distance per pair, so
-    the two directions are averaged.
+    Next, every pair of points gets a driving time, from a routing
+    service such as Google Maps, or, in the current version, from a
+    simplified model of Seattle traffic. With 500 points that comes to
+    about 130,000 numbers, kept in one big table: a row for the start,
+    a column for the destination. One wrinkle: driving from A to B
+    rarely takes exactly as long as driving back, and a drawing can
+    only show one distance between two points, so we average the two
+    directions.
   </p>
   <figure>
     <svg viewBox="0 0 700 200">
@@ -118,21 +118,20 @@
   <h2>Step 3: Let springs draw the city</h2>
   <p>
     Here is the heart of the method. Imagine every pair of points
-    joined by a spring whose natural length is their driving time.
-    Short trips pull points together; long trips hold them apart.
-    Release the tangle and let it settle. The arrangement it relaxes
-    into is the time-map: the layout in which distances on the page
-    match times on the clock as closely as they can.
+    joined by a spring whose relaxed length is their driving time.
+    Short trips pull points together. Long trips hold them apart.
+    Release the whole tangle and let it settle. The arrangement it
+    relaxes into is the time-map: the layout where distance on the
+    page matches time on the clock as closely as possible.
   </p>
   <p>
-    The formal name is <strong>multidimensional scaling</strong>. A
-    piece of linear algebra known as classical MDS produces a good
-    starting arrangement in a single computation, and an iterative
-    refinement called SMACOF then plays out the settling: each point
-    repeatedly asks, for every other point, where it would need to
-    stand for their distance to come out exactly right, and moves to
-    the average of the answers. Each round provably reduces the total
-    mismatch.
+    Mathematicians call this <strong>multidimensional scaling</strong>.
+    One formula (classical MDS) produces a good starting arrangement in
+    a single step. A repeated adjustment (SMACOF) then plays out the
+    settling: each point asks, for every other point, "where would I
+    need to stand for our distance to come out right?" and moves to the
+    average of those answers. Every round brings the picture a little
+    closer to the times.
   </p>
   <figure>
     <svg viewBox="0 0 700 230">
@@ -168,16 +167,15 @@
 
   <h2>Step 4: Turn it right side up</h2>
   <p>
-    The spring layout is right about distances and silent about
-    direction. It emerges arbitrarily rotated, and sometimes mirrored,
-    because turning or flipping the whole picture changes no distance
-    within it. A final step slides, turns and, if needed, un-mirrors
-    the layout until it agrees with real geography as closely as
-    possible, a technique called Procrustes alignment. That is why
-    north stays up and the result still reads as Seattle. An early
-    version of this site applied the rotation with its sign flipped,
-    and the whole city visibly spun as the slider moved; the error is
-    preserved here as a caution about checking alignment numerically.
+    The springs get the distances right but know nothing about
+    direction. The layout comes out turned at a random angle, and
+    sometimes mirrored, because turning or flipping a picture changes
+    none of the distances inside it. So the last step turns, flips,
+    and slides the layout until it lines up with the real map as well
+    as it can (the technique is called Procrustes alignment). That is
+    why north stays up and the result still looks like Seattle. An
+    early version of this site got the turn backwards, and the whole
+    city spun as the slider moved.
   </p>
   <figure>
     <svg viewBox="0 0 700 210">
@@ -210,22 +208,22 @@
 
   <h2>Step 5: Measure what the map cannot say</h2>
   <p>
-    Now the deep limitation, which is also the most interesting part.
+    Now for the most interesting part: the thing this map cannot do.
     Take two spots facing each other across the Ship Canal: 15 minutes
     apart by car, and each 10 minutes from the bridge that connects
-    them. Try to draw all three so that every distance matches its
-    time. It cannot be done. The two banks want to sit far apart, yet
-    both must stay close to the same bridge, which drags them back
-    together. Travel time simply does not behave like distance on a
-    flat sheet of paper.
+    them. Try to draw all three so every distance matches its time.
+    You can't. The two banks want to sit far apart, but both must stay
+    close to the same bridge, which drags them back together. Travel
+    time simply refuses to behave like distance on a flat sheet of
+    paper.
   </p>
   <p>
-    The layout is therefore a best compromise, and the compromise is
-    measured. The leftover error at each point is called
+    So the layout is a best compromise, and we measure how much each
+    point had to give up. That leftover error is called
     <strong>stress</strong>, and it is what the dot sizes on the map
-    encode. High stress marks the places where geography and the clock
-    disagree most sharply. In Seattle those places are the water
-    crossings, which is the story of the city told in one statistic.
+    show. Big dots mark the places where geography and the clock
+    disagree the most. In Seattle, those places are the water
+    crossings. That is the story of the city in one number.
   </p>
   <figure>
     <svg viewBox="0 0 700 220">
@@ -263,12 +261,12 @@
   <h2>A note on the data</h2>
   <p>
     The current site runs on a modeled time table: fast north-south
-    corridors, slower surface streets, penalties at the crossings. The
-    model exists so the method could be built and judged before
-    collecting real measurements. Swapping in measured times from a
-    routing service changes only Step 2; every other step is untouched.
-    The full pipeline is about 500 lines of dependency-free JavaScript,
-    published in the
+    corridors, slower surface streets, delays at the crossings. The
+    model exists so the method could be built and judged before paying
+    for real measurements. Swapping in measured times from a routing
+    service such as Google Maps changes only Step 2; every other step
+    stays the same. The full pipeline is about 500 lines of plain
+    JavaScript, published in the
     <a href="https://github.com/mattkindy/seattle-map">repository</a>.
   </p>
 </main>
