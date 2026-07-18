@@ -47,15 +47,15 @@
   <p class="kicker">Methodology</p>
   <h1>How We Made This Map</h1>
   <p class="lede">
-    How 130,000 driving times become one stretched picture of Seattle,
+    How 270,000 driving times become one stretched picture of Seattle,
     in five steps. <a href="./index.html">Back to the map.</a>
   </p>
 
   <h2>Step 1: Sample the city</h2>
   <p>
     We can't measure the travel time from everywhere to everywhere, so
-    we start by covering the city with a honeycomb of about 500 sample
-    points, one every 600 meters, and throwing out the ones that land
+    we start by covering the city with a honeycomb of about 700 sample
+    points, one every 500 meters, and throwing out the ones that land
     in water. From here on, everything happens to these points. The
     rest of the city just moves along with its nearest points.
   </p>
@@ -85,8 +85,8 @@
   <p>
     Next, every pair of points gets a driving time, from a routing
     service such as Google Maps, or, in the current version, from a
-    simplified model of Seattle traffic. With 500 points that comes to
-    about 130,000 numbers, kept in one big table: a row for the start,
+    simplified model of Seattle traffic. With 700 points that comes to
+    about 270,000 numbers, kept in one big table: a row for the start,
     a column for the destination. One wrinkle: driving from A to B
     rarely takes exactly as long as driving back, and a drawing can
     only show one distance between two points, so we average the two
@@ -111,7 +111,7 @@
       </g>
     </svg>
     <figcaption>
-      The whole dataset is a table like this, scaled up to 500 rows and
+      The whole dataset is a table like this, scaled up to more than 700 rows and
       columns. Green cells are quick trips, red cells slow ones. The
       water crossings show up as bands of red. Nothing about maps has
       happened yet.

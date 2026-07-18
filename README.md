@@ -14,7 +14,7 @@ shear at the bridges.
 ## How it works
 
 1. `scripts/generateGrid.mjs` lays a hex grid of anchor points over the
-   city and drops the ones in water (about 520 anchors).
+   city and drops the ones in water (about 730 anchors).
 2. `scripts/fetchMatrix.mjs` builds the pairwise drive-time matrix.
    With `GOOGLE_MAPS_API_KEY` set it uses the Distance Matrix API in
    25x25 blocks (price out n^2 elements before a dense run). Without a
@@ -38,9 +38,9 @@ open docs/index.html
 ```
 
 First sanity result from the synthetic matrix: Northgate to Columbia
-City (north-south) compresses to 0.92x its geographic distance, while
+City (north-south) compresses to 0.90x its geographic distance, while
 Ballard to the U District (east-west on slow surface streets) stretches
-to 1.63x.
+to 1.64x.
 
 ## Where this goes
 
