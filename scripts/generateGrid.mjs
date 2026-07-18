@@ -35,9 +35,11 @@ const LAT_MID = (BOUNDS.north + BOUNDS.south) / 2;
 const COL_SPACING =
   (ROW_SPACING / Math.cos((LAT_MID * Math.PI) / 180)) * (2 / Math.sqrt(3));
 
-// Coarse water polygons as [lng, lat] rings.
+// Coarse water polygons as [lng, lat] rings. The canal and bays are
+// deliberately thin: an over-wide polygon deletes land rows (Interbay,
+// lower Fremont) and tears the mesh where there is no water.
 const WATER = [
-  // Puget Sound: everything west of a ragged coastline.
+  // Puget Sound: everything west of a ragged coastline, incl. Elliott Bay.
   {
     name: "puget-sound",
     ring: [
@@ -70,15 +72,35 @@ const WATER = [
       [-122.255, 47.5],
     ],
   },
-  // Lake Union + Portage Bay.
+  // Union Bay (Montlake to Laurelhurst).
+  {
+    name: "union-bay",
+    ring: [
+      [-122.3, 47.648],
+      [-122.3, 47.662],
+      [-122.266, 47.662],
+      [-122.266, 47.648],
+    ],
+  },
+  // Lake Union proper (Westlake to Eastlake, SLU to Gas Works).
   {
     name: "lake-union",
     ring: [
-      [-122.345, 47.62],
-      [-122.345, 47.655],
-      [-122.32, 47.655],
-      [-122.305, 47.645],
-      [-122.31, 47.62],
+      [-122.343, 47.623],
+      [-122.343, 47.649],
+      [-122.32, 47.649],
+      [-122.317, 47.638],
+      [-122.322, 47.623],
+    ],
+  },
+  // Portage Bay between Eastlake and Montlake.
+  {
+    name: "portage-bay",
+    ring: [
+      [-122.322, 47.644],
+      [-122.322, 47.657],
+      [-122.303, 47.657],
+      [-122.303, 47.644],
     ],
   },
   // Green Lake.
@@ -91,14 +113,34 @@ const WATER = [
       [-122.325, 47.673],
     ],
   },
-  // Ship Canal / Salmon Bay west of Lake Union.
+  // Salmon Bay: the locks to the Ballard Bridge.
   {
-    name: "ship-canal",
+    name: "salmon-bay",
     ring: [
-      [-122.415, 47.655],
-      [-122.415, 47.668],
-      [-122.345, 47.662],
-      [-122.345, 47.65],
+      [-122.413, 47.66],
+      [-122.413, 47.672],
+      [-122.383, 47.666],
+      [-122.383, 47.656],
+    ],
+  },
+  // Fremont cut: thin diagonal from the Ballard Bridge to Lake Union.
+  {
+    name: "fremont-canal",
+    ring: [
+      [-122.383, 47.656],
+      [-122.383, 47.664],
+      [-122.343, 47.651],
+      [-122.343, 47.643],
+    ],
+  },
+  // Duwamish waterway / Harbor Island between SODO and West Seattle.
+  {
+    name: "duwamish",
+    ring: [
+      [-122.359, 47.52],
+      [-122.359, 47.588],
+      [-122.338, 47.588],
+      [-122.338, 47.52],
     ],
   },
 ];
@@ -138,10 +180,79 @@ for (let lat = BOUNDS.south; lat <= BOUNDS.north; lat += ROW_SPACING) {
   row++;
 }
 
-const out = { bounds: BOUNDS, count: anchors.length, anchors };
+// Real crossings. A mesh edge may cross water only near one of these,
+// so the mesh tears along the canal and the Duwamish except where a
+// bridge actually exists. [name, lat, lng]
+const BRIDGES = [
+  ["Ballard Bridge", 47.6598, -122.3764],
+  ["Fremont Bridge", 47.6476, -122.3497],
+  ["Aurora Bridge", 47.6462, -122.3476],
+  ["I-5 Ship Canal Bridge", 47.6529, -122.3284],
+  ["University Bridge", 47.6529, -122.3205],
+  ["Montlake Bridge", 47.6473, -122.3045],
+  ["West Seattle Bridge", 47.5706, -122.3524],
+  ["1st Ave S Bridge", 47.5422, -122.3340],
+];
+const BRIDGE_RADIUS_KM = 0.55;
+
+const kmPerDegLngLocal = 111.32 * Math.cos((LAT_MID * Math.PI) / 180);
+function kmBetween(a, b) {
+  return Math.hypot(
+    (a.lat - b.lat) * 111.32,
+    (a.lng - b.lng) * kmPerDegLngLocal,
+  );
+}
+function nearBridge(lat, lng) {
+  return BRIDGES.some(
+    ([, blat, blng]) =>
+      Math.hypot((lat - blat) * 111.32, (lng - blng) * kmPerDegLngLocal) <
+      BRIDGE_RADIUS_KM,
+  );
+}
+
+// Mesh edges: neighbors within 1.5 grid steps. An edge whose sampled
+// midpoints fall in water is dropped unless the crossing sits at a
+// bridge, in which case it is kept and tagged.
+const STEP_KM = ROW_SPACING * 111.32;
+const edges = [];
+for (let i = 0; i < anchors.length; i++) {
+  for (let j = i + 1; j < anchors.length; j++) {
+    const a = anchors[i];
+    const b = anchors[j];
+    const km = kmBetween(a, b);
+    // Bridge crossings span the water, so opposite-bank anchors sit
+    // farther apart than on-land neighbors; give them extra reach.
+    if (km > STEP_KM * 2.8) {
+      continue;
+    }
+    let wet = false;
+    for (const t of [0.2, 0.35, 0.5, 0.65, 0.8]) {
+      const lat = a.lat + (b.lat - a.lat) * t;
+      const lng = a.lng + (b.lng - a.lng) * t;
+      if (inWater(lng, lat)) {
+        wet = true;
+        break;
+      }
+    }
+    if (!wet) {
+      if (km <= STEP_KM * 1.6) {
+        edges.push([i, j, 0]);
+      }
+    } else {
+      const midLat = (a.lat + b.lat) / 2;
+      const midLng = (a.lng + b.lng) / 2;
+      if (nearBridge(midLat, midLng)) {
+        edges.push([i, j, 1]);
+      }
+    }
+  }
+}
+const bridgeEdges = edges.filter((e) => e[2] === 1).length;
+
+const out = { bounds: BOUNDS, count: anchors.length, anchors, edges };
 fs.mkdirSync(path.join(root, "data"), { recursive: true });
 fs.writeFileSync(
   path.join(root, "data", "grid.json"),
   JSON.stringify(out, null, 2),
 );
-console.log(`grid: ${anchors.length} land anchors written to data/grid.json`);
+console.log(`grid: ${anchors.length} land anchors, ${edges.length} edges (${bridgeEdges} bridge) -> data/grid.json`);

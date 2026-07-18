@@ -33,6 +33,7 @@
   svg { max-width: 96vw; height: auto; }
   .anchor { fill: var(--ink); opacity: 0.55; }
   .edge { stroke: var(--mesh); stroke-width: 0.6; opacity: 0.45; fill: none; }
+  .bridge { stroke: var(--hot); stroke-width: 1.4; opacity: 0.85; fill: none; }
   .coast { fill: var(--water); stroke: none; opacity: 0.9; }
   .label { font-size: 11px; fill: var(--ink); opacity: 0.85; paint-order: stroke; stroke: var(--bg); stroke-width: 3; }
 </style>
@@ -74,39 +75,34 @@
     ["Downtown", 47.608, -122.335],
     ["Ballard", 47.668, -122.384],
     ["U District", 47.66, -122.313],
-    ["Fremont", 47.651, -122.35],
+    ["Fremont", 47.6535, -122.3505],
     ["Capitol Hill", 47.623, -122.316],
     ["Columbia City", 47.56, -122.287],
     ["West Seattle", 47.566, -122.387],
     ["Northgate", 47.708, -122.328],
   ];
-  function nearestAnchor(lat, lng) {
-    let best = 0, bd = Infinity;
-    anchors.forEach((a, i) => {
-      const d = (a.lat - lat) ** 2 + (a.lng - lng) ** 2;
-      if (d < bd) { bd = d; best = i; }
-    });
-    return best;
-  }
-  const landmarkIdx = LANDMARKS.map(([name, lat, lng]) => [name, nearestAnchor(lat, lng)]);
+  // For each landmark: its true geo point plus the 4 nearest anchors,
+  // weighted by inverse squared distance. The label starts exactly at
+  // the landmark and moves with the weighted average of its neighbors'
+  // displacement, so it can never jump across water to a lone anchor.
+  const landmarkRefs = LANDMARKS.map(([name, lat, lng]) => {
+    const g = [lng * kmLng, lat * 111.32];
+    const scored = anchors
+      .map((a, i) => ({ i, d: (a.lat - lat) ** 2 + (a.lng - lng) ** 2 }))
+      .sort((p, q) => p.d - q.d)
+      .slice(0, 4);
+    const wsum = scored.reduce((s, p) => s + 1 / (p.d + 1e-9), 0);
+    const refs = scored.map((p) => ({ i: p.i, w: 1 / (p.d + 1e-9) / wsum }));
+    return { name, g, refs };
+  });
 
-  // Mesh edges: connect each anchor to neighbors within 1.5 grid steps
-  // (geographic), so the warp reads as a surface, not a point cloud.
-  const step = 0.62; // km, approx grid spacing
-  const edges = [];
-  for (let i = 0; i < anchors.length; i++) {
-    for (let j = i + 1; j < anchors.length; j++) {
-      const dx = geo[i][0] - geo[j][0];
-      const dy = geo[i][1] - geo[j][1];
-      if (Math.hypot(dx, dy) < step * 1.5) {
-        edges.push([i, j]);
-      }
-    }
-  }
+  // Mesh edges are precomputed by the grid stage with a water test:
+  // they tear along the canal and the Duwamish except at real bridges.
+  const edges = window.EMBEDDING.edges;
 
-  const edgeEls = edges.map(() => {
+  const edgeEls = edges.map(([, , kind]) => {
     const el = document.createElementNS(NS, "line");
-    el.setAttribute("class", "edge");
+    el.setAttribute("class", kind === 1 ? "bridge" : "edge");
     svg.appendChild(el);
     return el;
   });
@@ -116,7 +112,7 @@
     svg.appendChild(el);
     return el;
   });
-  const labelEls = landmarkIdx.map(([name]) => {
+  const labelEls = landmarkRefs.map(({ name }) => {
     const el = document.createElementNS(NS, "text");
     el.setAttribute("class", "label");
     el.textContent = name;
@@ -144,9 +140,16 @@
       // radius encodes residual stress: big dot = 2D can't honor times here
       el.setAttribute("r", 1.5 + Math.min(a.stress / 120, 3));
     });
-    landmarkIdx.forEach(([name, idx], k) => {
-      labelEls[k].setAttribute("x", pos[idx][0] + 6);
-      labelEls[k].setAttribute("y", pos[idx][1] - 4);
+    landmarkRefs.forEach(({ g, refs }, k) => {
+      const base = px(g);
+      let dx = 0, dy = 0;
+      for (const { i, w } of refs) {
+        const gp = px(geo[i]);
+        dx += w * (pos[i][0] - gp[0]);
+        dy += w * (pos[i][1] - gp[1]);
+      }
+      labelEls[k].setAttribute("x", base[0] + dx + 6);
+      labelEls[k].setAttribute("y", base[1] + dy - 4);
     });
   }
 

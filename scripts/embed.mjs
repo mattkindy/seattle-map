@@ -233,6 +233,7 @@ X = procrustes(X, G);
 
 const out = {
   provider,
+  edges: grid.edges ?? [],
   stress: Number(total.toFixed(4)),
   anchors: anchors.map((a, i) => ({
     id: a.id,
