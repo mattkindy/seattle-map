@@ -1,0 +1,156 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Seattle in drive time</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fafafa;
+    --ink: #222;
+    --water: #b8d4e8;
+    --mesh: #999;
+    --hot: #d84a3a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14171a; --ink: #ddd; --water: #23384a; --mesh: #667; }
+  }
+  body {
+    margin: 0;
+    font: 14px/1.4 system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  header {
+    padding: 12px 16px 4px;
+    text-align: center;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { opacity: 0.7; font-size: 13px; }
+  .controls { margin: 8px 0; display: flex; gap: 12px; align-items: center; }
+  input[type="range"] { width: 260px; }
+  svg { max-width: 96vw; height: auto; }
+  .anchor { fill: var(--ink); opacity: 0.55; }
+  .edge { stroke: var(--mesh); stroke-width: 0.6; opacity: 0.45; fill: none; }
+  .coast { fill: var(--water); stroke: none; opacity: 0.9; }
+  .label { font-size: 11px; fill: var(--ink); opacity: 0.85; paint-order: stroke; stroke: var(--bg); stroke-width: 3; }
+</style>
+<header>
+  <h1>Seattle, drawn in drive time</h1>
+  <div class="sub" id="meta">loading…</div>
+  <div class="controls">
+    <span>geography</span>
+    <input id="morph" type="range" min="0" max="1" step="0.01" value="0" />
+    <span>drive time</span>
+  </div>
+</header>
+<svg id="map" width="760" height="900" viewBox="0 0 760 900"></svg>
+<script type="module">
+  const svg = document.getElementById("map");
+  const NS = "http://www.w3.org/2000/svg";
+  const res = await fetch("../data/embedding.json");
+  const { anchors, stress, provider } = await res.json();
+  document.getElementById("meta").textContent =
+    `${anchors.length} anchors · ${provider} matrix · stress ${stress} · drag the slider`;
+
+  // Projections: geographic (km) and time-space are already in the same
+  // Procrustes-aligned frame, so one scale serves both.
+  const kmLng = 111.32 * Math.cos((47.61 * Math.PI) / 180);
+  const geo = anchors.map((a) => [a.lng * kmLng, a.lat * 111.32]);
+  const tsp = anchors.map((a) => [a.tx, a.ty]);
+  const all = geo.concat(tsp);
+  const xs = all.map((p) => p[0]);
+  const ys = all.map((p) => p[1]);
+  const pad = 2;
+  const x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad;
+  const y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
+  const W = 760, H = 900;
+  const s = Math.min(W / (x1 - x0), H / (y1 - y0));
+  const px = (p) => [(p[0] - x0) * s, H - (p[1] - y0) * s];
+
+  // Landmarks pinned to their nearest anchor so labels ride the warp.
+  const LANDMARKS = [
+    ["Downtown", 47.608, -122.335],
+    ["Ballard", 47.668, -122.384],
+    ["U District", 47.66, -122.313],
+    ["Fremont", 47.651, -122.35],
+    ["Capitol Hill", 47.623, -122.316],
+    ["Columbia City", 47.56, -122.287],
+    ["West Seattle", 47.566, -122.387],
+    ["Northgate", 47.708, -122.328],
+  ];
+  function nearestAnchor(lat, lng) {
+    let best = 0, bd = Infinity;
+    anchors.forEach((a, i) => {
+      const d = (a.lat - lat) ** 2 + (a.lng - lng) ** 2;
+      if (d < bd) { bd = d; best = i; }
+    });
+    return best;
+  }
+  const landmarkIdx = LANDMARKS.map(([name, lat, lng]) => [name, nearestAnchor(lat, lng)]);
+
+  // Mesh edges: connect each anchor to neighbors within 1.5 grid steps
+  // (geographic), so the warp reads as a surface, not a point cloud.
+  const step = 0.62; // km, approx grid spacing
+  const edges = [];
+  for (let i = 0; i < anchors.length; i++) {
+    for (let j = i + 1; j < anchors.length; j++) {
+      const dx = geo[i][0] - geo[j][0];
+      const dy = geo[i][1] - geo[j][1];
+      if (Math.hypot(dx, dy) < step * 1.5) {
+        edges.push([i, j]);
+      }
+    }
+  }
+
+  const edgeEls = edges.map(() => {
+    const el = document.createElementNS(NS, "line");
+    el.setAttribute("class", "edge");
+    svg.appendChild(el);
+    return el;
+  });
+  const dotEls = anchors.map(() => {
+    const el = document.createElementNS(NS, "circle");
+    el.setAttribute("class", "anchor");
+    svg.appendChild(el);
+    return el;
+  });
+  const labelEls = landmarkIdx.map(([name]) => {
+    const el = document.createElementNS(NS, "text");
+    el.setAttribute("class", "label");
+    el.textContent = name;
+    svg.appendChild(el);
+    return el;
+  });
+
+  function render(t) {
+    const pos = anchors.map((a, i) => {
+      const g = px(geo[i]);
+      const m = px(tsp[i]);
+      return [g[0] + (m[0] - g[0]) * t, g[1] + (m[1] - g[1]) * t];
+    });
+    edges.forEach(([i, j], k) => {
+      const el = edgeEls[k];
+      el.setAttribute("x1", pos[i][0]);
+      el.setAttribute("y1", pos[i][1]);
+      el.setAttribute("x2", pos[j][0]);
+      el.setAttribute("y2", pos[j][1]);
+    });
+    anchors.forEach((a, i) => {
+      const el = dotEls[i];
+      el.setAttribute("cx", pos[i][0]);
+      el.setAttribute("cy", pos[i][1]);
+      // radius encodes residual stress: big dot = 2D can't honor times here
+      el.setAttribute("r", 1.5 + Math.min(a.stress / 120, 3));
+    });
+    landmarkIdx.forEach(([name, idx], k) => {
+      labelEls[k].setAttribute("x", pos[idx][0] + 6);
+      labelEls[k].setAttribute("y", pos[idx][1] - 4);
+    });
+  }
+
+  const slider = document.getElementById("morph");
+  slider.addEventListener("input", () => render(Number(slider.value)));
+  render(0);
+</script>

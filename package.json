@@ -1,0 +1,14 @@
+{
+  "name": "seattle-map",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "A time-space cartogram of Seattle, where on-screen distance follows travel time instead of geography.",
+  "scripts": {
+    "grid": "node scripts/generateGrid.mjs",
+    "matrix": "node scripts/fetchMatrix.mjs",
+    "embed": "node scripts/embed.mjs",
+    "pipeline": "node scripts/pipeline.mjs",
+    "serve": "node scripts/serve.mjs"
+  }
+}
