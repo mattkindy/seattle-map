@@ -39,7 +39,7 @@ open docs/index.html
 
 First sanity result from the synthetic matrix: Northgate to Columbia
 City (north-south) compresses to 0.92x its geographic distance, while
-Ballard to the U District (east-west across the Ship Canal) stretches
+Ballard to the U District (east-west on slow surface streets) stretches
 to 1.63x.
 
 ## Where this goes
