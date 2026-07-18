@@ -21,7 +21,8 @@ shear at the bridges.
    SMACOF refinement, no dependencies) to place anchors so screen
    distance approximates drive time, then Procrustes-aligns the result
    back to geography so north stays up.
-4. `viewer/index.html` draws the anchor mesh and morphs between
+4. `viewer/index.html` opens directly from disk (the embedding is
+   inlined as `viewer/embedding.js` at build time) and morphs between
    geography and time-space with a slider. Dot size shows residual
    stress: where a flat map cannot honor the times (bridge shear).
 
@@ -29,7 +30,7 @@ shear at the bridges.
 
 ```bash
 npm run pipeline   # grid -> matrix -> embedding (synthetic by default)
-npm run serve      # http://localhost:8642
+open viewer/index.html
 ```
 
 First sanity result from the synthetic matrix: Northgate to Columbia

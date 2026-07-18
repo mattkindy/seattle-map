@@ -46,11 +46,11 @@
   </div>
 </header>
 <svg id="map" width="760" height="900" viewBox="0 0 760 900"></svg>
+<script src="./embedding.js"></script>
 <script type="module">
   const svg = document.getElementById("map");
   const NS = "http://www.w3.org/2000/svg";
-  const res = await fetch("../data/embedding.json");
-  const { anchors, stress, provider } = await res.json();
+  const { anchors, stress, provider } = window.EMBEDDING;
   document.getElementById("meta").textContent =
     `${anchors.length} anchors · ${provider} matrix · stress ${stress} · drag the slider`;
 

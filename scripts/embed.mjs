@@ -248,6 +248,12 @@ fs.writeFileSync(
   path.join(root, "data", "embedding.json"),
   JSON.stringify(out, null, 1),
 );
+// Inline copy so viewer/index.html opens from file:// with no server.
+fs.writeFileSync(
+  path.join(root, "viewer", "embedding.js"),
+  `window.EMBEDDING = ${JSON.stringify(out)};
+`,
+);
 console.log(
   `embedding: stress ${out.stress} (${provider} matrix) -> data/embedding.json`,
 );
