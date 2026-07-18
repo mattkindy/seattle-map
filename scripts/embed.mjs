@@ -249,9 +249,9 @@ fs.writeFileSync(
   path.join(root, "data", "embedding.json"),
   JSON.stringify(out, null, 1),
 );
-// Inline copy so viewer/index.html opens from file:// with no server.
+// Inline copy so docs/index.html opens from file:// and serves on Pages.
 fs.writeFileSync(
-  path.join(root, "viewer", "embedding.js"),
+  path.join(root, "docs", "embedding.js"),
   `window.EMBEDDING = ${JSON.stringify(out)};
 `,
 );

@@ -1,5 +1,9 @@
 # Seattle Map
 
+Live map: https://mattkindy.github.io/seattle-map/ (with a
+[plain-language explanation](https://mattkindy.github.io/seattle-map/) and an
+[illustrated math page](https://mattkindy.github.io/seattle-map/math.html)).
+
 A time-space cartogram of Seattle: a map where the distance between two
 points reflects how long it takes to travel between them, not how far
 apart they are. Seattle is a good subject because travel time is so
@@ -21,16 +25,16 @@ shear at the bridges.
    SMACOF refinement, no dependencies) to place anchors so screen
    distance approximates drive time, then Procrustes-aligns the result
    back to geography so north stays up.
-4. `viewer/index.html` opens directly from disk (the embedding is
-   inlined as `viewer/embedding.js` at build time) and morphs between
-   geography and time-space with a slider. Dot size shows residual
-   stress: where a flat map cannot honor the times (bridge shear).
+4. `docs/index.html` is the site (GitHub Pages serves `docs/`): the
+   interactive map plus a plain-language explanation, with the math
+   walk-through in `docs/math.html`. It opens from disk too; the
+   embedding is inlined as `docs/embedding.js` at build time.
 
 ## Run it
 
 ```bash
 npm run pipeline   # grid -> matrix -> embedding (synthetic by default)
-open viewer/index.html
+open docs/index.html
 ```
 
 First sanity result from the synthetic matrix: Northgate to Columbia

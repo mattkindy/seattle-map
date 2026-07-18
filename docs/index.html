@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Seattle, drawn in drive time</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fafafa;
+    --ink: #222;
+    --soft: #555;
+    --water: #b8d4e8;
+    --mesh: #999;
+    --hot: #d84a3a;
+    --card: #fff;
+    --line: #e2e2e2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14171a; --ink: #ddd; --soft: #aaa; --water: #23384a;
+            --mesh: #667; --card: #1c2126; --line: #2c333a; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 16px/1.6 system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+  }
+  main { max-width: 820px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 30px; line-height: 1.2; margin: 12px 0 6px; }
+  h2 { font-size: 21px; margin: 40px 0 8px; }
+  p { margin: 10px 0; }
+  .lede { font-size: 18px; color: var(--soft); }
+  a { color: inherit; }
+  .mapcard {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px;
+    margin: 24px 0 8px;
+  }
+  .controls { display: flex; gap: 12px; align-items: center; justify-content: center;
+              margin: 6px 0 2px; font-size: 14px; color: var(--soft); }
+  input[type="range"] { width: min(320px, 60vw); }
+  svg.map { width: 100%; height: auto; display: block; }
+  .anchor { fill: var(--ink); opacity: 0.55; }
+  .edge { stroke: var(--mesh); stroke-width: 0.6; opacity: 0.45; fill: none; }
+  .bridge { stroke: var(--hot); stroke-width: 1.4; opacity: 0.85; fill: none; }
+  .label { font-size: 11px; fill: var(--ink); opacity: 0.9; paint-order: stroke;
+           stroke: var(--card); stroke-width: 3; }
+  .meta { text-align: center; font-size: 13px; color: var(--soft); margin: 4px 0 0; }
+  .note {
+    border-left: 3px solid var(--hot);
+    padding: 2px 12px;
+    color: var(--soft);
+    margin: 16px 0;
+  }
+  footer { margin-top: 48px; font-size: 14px; color: var(--soft); }
+</style>
+<main>
+  <h1>Seattle, drawn in drive time</h1>
+  <p class="lede">
+    A map where distance means time. Two places are drawn close together
+    if driving between them is quick, and far apart if it's slow, no
+    matter how near they are on a normal map.
+  </p>
+
+  <div class="mapcard">
+    <div class="controls">
+      <span>geography</span>
+      <input id="morph" type="range" min="0" max="1" step="0.01" value="0" />
+      <span>drive time</span>
+    </div>
+    <svg id="map" class="map" viewBox="0 0 760 900"></svg>
+    <p class="meta" id="meta">loading…</p>
+  </div>
+
+  <p class="note">
+    Heads up: the travel times behind this version are a stand-in model,
+    built to behave like Seattle traffic (fast north-south, slow across
+    the water) so the idea can be seen working. Swapping in measured
+    drive times is the next step, and the map machinery doesn't change.
+  </p>
+
+  <h2>How to read it</h2>
+  <p>
+    Drag the slider. At the left, every dot sits at its true location:
+    it's an ordinary map of Seattle. As you drag right, each dot moves to
+    where it belongs <em>in time</em>. Watch three things happen:
+  </p>
+  <p>
+    <strong>The city gets wider.</strong> East-west trips are slow, so
+    east-west distances grow. North-south trips ride I-5 and Highway 99,
+    so those distances barely change. Seattle's whole shape stretches
+    sideways.
+  </p>
+  <p>
+    <strong>The red lines stretch the most.</strong> Those are the
+    bridges. Nearly every trip across the Ship Canal or the Duwamish
+    funnels over a handful of crossings, and the waiting is baked into
+    every trip that uses them. In time-space, the two banks of the canal
+    are simply farther apart than they look, and the bridges visibly
+    lengthen to span the gap.
+  </p>
+  <p>
+    <strong>Some dots are bigger than others.</strong> A flat map can't
+    honor every travel time at once, so each dot's size shows how much
+    the map is "lying" right there. The big dots cluster near the water
+    crossings, where two places can be close in a straight line and far
+    apart by car.
+  </p>
+
+  <h2>Why Seattle?</h2>
+  <p>
+    Every city has traffic, but Seattle's is unusually directional. The
+    city is a north-south strip pinched between Puget Sound and Lake
+    Washington, with a canal cut across its middle. Fast roads run the
+    long way; the short way crosses water. That means how long a trip
+    takes depends heavily on which direction you're going, which is
+    exactly the thing a normal map can't show and this one can.
+  </p>
+
+  <h2>What's actually going on</h2>
+  <p>
+    A grid of about 500 points covers the city. For every pair of points
+    we have a driving time, and the computer looks for an arrangement of
+    the points where the distances on screen match those times as
+    closely as possible. No one draws the stretched map by hand; it's
+    what falls out when you ask "what would Seattle look like if
+    distance meant time?" and let the times answer.
+  </p>
+  <p>
+    If you want the details, including why a perfect time-map is
+    mathematically impossible and what we do about it, the
+    <a href="./math.html">math page</a> walks through it with pictures.
+  </p>
+
+  <footer>
+    Source and pipeline: <a href="https://github.com/mattkindy/seattle-map">github.com/mattkindy/seattle-map</a>.
+    Coming later: real measured drive times, transit and bike versions,
+    rush hour vs midday, and street maps warped through the same mesh.
+  </footer>
+</main>
+<script src="./embedding.js"></script>
+<script type="module">
+  const svg = document.getElementById("map");
+  const NS = "http://www.w3.org/2000/svg";
+  const { anchors, stress, provider } = window.EMBEDDING;
+  document.getElementById("meta").textContent =
+    `${anchors.length} sample points · ${provider === "synthetic" ? "modeled" : "measured"} drive times · red lines are bridges · dot size = where a flat map can't honor the times`;
+
+  const kmLng = 111.32 * Math.cos((47.61 * Math.PI) / 180);
+  const geo = anchors.map((a) => [a.lng * kmLng, a.lat * 111.32]);
+  const tsp = anchors.map((a) => [a.tx, a.ty]);
+  const all = geo.concat(tsp);
+  const xs = all.map((p) => p[0]);
+  const ys = all.map((p) => p[1]);
+  const pad = 2;
+  const x0 = Math.min(...xs) - pad, x1 = Math.max(...xs) + pad;
+  const y0 = Math.min(...ys) - pad, y1 = Math.max(...ys) + pad;
+  const W = 760, H = 900;
+  const s = Math.min(W / (x1 - x0), H / (y1 - y0));
+  const px = (p) => [(p[0] - x0) * s, H - (p[1] - y0) * s];
+
+  const LANDMARKS = [
+    ["Downtown", 47.608, -122.335],
+    ["Ballard", 47.668, -122.384],
+    ["U District", 47.66, -122.313],
+    ["Fremont", 47.6535, -122.3505],
+    ["Capitol Hill", 47.623, -122.316],
+    ["Columbia City", 47.56, -122.287],
+    ["West Seattle", 47.566, -122.387],
+    ["Northgate", 47.708, -122.328],
+  ];
+  const landmarkRefs = LANDMARKS.map(([name, lat, lng]) => {
+    const g = [lng * kmLng, lat * 111.32];
+    const scored = anchors
+      .map((a, i) => ({ i, d: (a.lat - lat) ** 2 + (a.lng - lng) ** 2 }))
+      .sort((p, q) => p.d - q.d)
+      .slice(0, 4);
+    const wsum = scored.reduce((s, p) => s + 1 / (p.d + 1e-9), 0);
+    const refs = scored.map((p) => ({ i: p.i, w: 1 / (p.d + 1e-9) / wsum }));
+    return { name, g, refs };
+  });
+
+  const edges = window.EMBEDDING.edges;
+  const edgeEls = edges.map(([, , kind]) => {
+    const el = document.createElementNS(NS, "line");
+    el.setAttribute("class", kind === 1 ? "bridge" : "edge");
+    svg.appendChild(el);
+    return el;
+  });
+  const dotEls = anchors.map(() => {
+    const el = document.createElementNS(NS, "circle");
+    el.setAttribute("class", "anchor");
+    svg.appendChild(el);
+    return el;
+  });
+  const labelEls = landmarkRefs.map(({ name }) => {
+    const el = document.createElementNS(NS, "text");
+    el.setAttribute("class", "label");
+    el.textContent = name;
+    svg.appendChild(el);
+    return el;
+  });
+
+  function render(t) {
+    const pos = anchors.map((a, i) => {
+      const g = px(geo[i]);
+      const m = px(tsp[i]);
+      return [g[0] + (m[0] - g[0]) * t, g[1] + (m[1] - g[1]) * t];
+    });
+    edges.forEach(([i, j], k) => {
+      const el = edgeEls[k];
+      el.setAttribute("x1", pos[i][0]);
+      el.setAttribute("y1", pos[i][1]);
+      el.setAttribute("x2", pos[j][0]);
+      el.setAttribute("y2", pos[j][1]);
+    });
+    anchors.forEach((a, i) => {
+      const el = dotEls[i];
+      el.setAttribute("cx", pos[i][0]);
+      el.setAttribute("cy", pos[i][1]);
+      el.setAttribute("r", 1.5 + Math.min(a.stress / 120, 3));
+    });
+    landmarkRefs.forEach(({ g, refs }, k) => {
+      const base = px(g);
+      let dx = 0, dy = 0;
+      for (const { i, w } of refs) {
+        const gp = px(geo[i]);
+        dx += w * (pos[i][0] - gp[0]);
+        dy += w * (pos[i][1] - gp[1]);
+      }
+      labelEls[k].setAttribute("x", base[0] + dx + 6);
+      labelEls[k].setAttribute("y", base[1] + dy - 4);
+    });
+  }
+
+  const slider = document.getElementById("morph");
+  slider.addEventListener("input", () => render(Number(slider.value)));
+  render(0);
+</script>
+</html>

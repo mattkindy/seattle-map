@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The math behind the time-map</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fafafa; --ink: #222; --soft: #555; --card: #fff; --line: #e2e2e2;
+    --water: #8db8d8; --hot: #d84a3a; --ok: #3a8a5f; --accent: #3a6ea5;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14171a; --ink: #ddd; --soft: #aaa; --card: #1c2126;
+            --line: #2c333a; --water: #35597a; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.6 system-ui, sans-serif; background: var(--bg); color: var(--ink); }
+  main { max-width: 780px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 28px; line-height: 1.2; margin: 12px 0 6px; }
+  h2 { font-size: 20px; margin: 40px 0 8px; }
+  p { margin: 10px 0; }
+  .lede { font-size: 17px; color: var(--soft); }
+  a { color: inherit; }
+  figure { margin: 20px 0; background: var(--card); border: 1px solid var(--line);
+           border-radius: 12px; padding: 14px; }
+  figure svg { width: 100%; height: auto; display: block; }
+  figcaption { font-size: 14px; color: var(--soft); margin-top: 8px; }
+  code { background: var(--card); border: 1px solid var(--line); border-radius: 4px;
+         padding: 0 4px; font-size: 14px; }
+  .fs { font-size: 13px; fill: var(--ink); }
+  .fsoft { font-size: 12px; fill: var(--soft); }
+</style>
+<main>
+  <h1>The math behind the time-map</h1>
+  <p class="lede">
+    How 130,000 driving times become one stretched picture of Seattle,
+    in five steps. Each has a picture; none needs more than high-school
+    math to follow. <a href="./index.html">Back to the map.</a>
+  </p>
+
+  <h2>1. Sample the city</h2>
+  <p>
+    You can't measure the travel time from everywhere to everywhere, so
+    we lay a honeycomb of about 500 points over the city, roughly one
+    every 600 meters, and skip the ones that land in water. Everything
+    from here on is about these points; the rest of the city tags along
+    with its nearest points.
+  </p>
+  <figure>
+    <svg viewBox="0 0 700 240">
+      <rect x="0" y="0" width="700" height="240" fill="none"/>
+      <path d="M60,20 C40,80 55,150 45,220 L0,220 L0,20 Z" fill="var(--water)" opacity="0.7"/>
+      <path d="M640,20 C660,90 645,160 655,220 L700,220 L700,20 Z" fill="var(--water)" opacity="0.7"/>
+      <path d="M60,110 C200,120 300,100 420,118 L420,132 C300,114 200,134 60,124 Z" fill="var(--water)" opacity="0.7"/>
+      <g fill="var(--ink)" opacity="0.75">
+        <!-- hex-ish dot rows, gap along the canal band -->
+        <g id="r1"><circle cx="100" cy="40" r="3"/><circle cx="150" cy="40" r="3"/><circle cx="200" cy="40" r="3"/><circle cx="250" cy="40" r="3"/><circle cx="300" cy="40" r="3"/><circle cx="350" cy="40" r="3"/><circle cx="400" cy="40" r="3"/><circle cx="450" cy="40" r="3"/><circle cx="500" cy="40" r="3"/><circle cx="550" cy="40" r="3"/><circle cx="600" cy="40" r="3"/></g>
+        <g><circle cx="125" cy="62" r="3"/><circle cx="175" cy="62" r="3"/><circle cx="225" cy="62" r="3"/><circle cx="275" cy="62" r="3"/><circle cx="325" cy="62" r="3"/><circle cx="375" cy="62" r="3"/><circle cx="425" cy="62" r="3"/><circle cx="475" cy="62" r="3"/><circle cx="525" cy="62" r="3"/><circle cx="575" cy="62" r="3"/></g>
+        <g><circle cx="100" cy="84" r="3"/><circle cx="150" cy="84" r="3"/><circle cx="200" cy="84" r="3"/><circle cx="250" cy="84" r="3"/><circle cx="300" cy="84" r="3"/><circle cx="350" cy="84" r="3"/><circle cx="400" cy="84" r="3"/><circle cx="450" cy="84" r="3"/><circle cx="500" cy="84" r="3"/><circle cx="550" cy="84" r="3"/><circle cx="600" cy="84" r="3"/></g>
+        <g><circle cx="125" cy="150" r="3"/><circle cx="175" cy="150" r="3"/><circle cx="225" cy="150" r="3"/><circle cx="275" cy="150" r="3"/><circle cx="325" cy="150" r="3"/><circle cx="375" cy="150" r="3"/><circle cx="425" cy="150" r="3"/><circle cx="475" cy="150" r="3"/><circle cx="525" cy="150" r="3"/><circle cx="575" cy="150" r="3"/></g>
+        <g><circle cx="100" cy="172" r="3"/><circle cx="150" cy="172" r="3"/><circle cx="200" cy="172" r="3"/><circle cx="250" cy="172" r="3"/><circle cx="300" cy="172" r="3"/><circle cx="350" cy="172" r="3"/><circle cx="400" cy="172" r="3"/><circle cx="450" cy="172" r="3"/><circle cx="500" cy="172" r="3"/><circle cx="550" cy="172" r="3"/><circle cx="600" cy="172" r="3"/></g>
+        <g><circle cx="125" cy="194" r="3"/><circle cx="175" cy="194" r="3"/><circle cx="225" cy="194" r="3"/><circle cx="275" cy="194" r="3"/><circle cx="325" cy="194" r="3"/><circle cx="375" cy="194" r="3"/><circle cx="425" cy="194" r="3"/><circle cx="475" cy="194" r="3"/><circle cx="525" cy="194" r="3"/><circle cx="575" cy="194" r="3"/></g>
+      </g>
+      <text x="235" y="128" class="fsoft">ship canal (no points in water)</text>
+      <text x="12" y="16" class="fsoft">sound</text>
+      <text x="652" y="16" class="fsoft">lake</text>
+    </svg>
+    <figcaption>
+      A honeycomb of sample points, with gaps wherever there's water.
+      Honeycomb, because it keeps every point the same distance from all
+      its neighbors, which makes the later stretching easy to see.
+    </figcaption>
+  </figure>
+
+  <h2>2. Measure every pair</h2>
+  <p>
+    For each pair of points we get a driving time, either from a routing
+    service or (in the current version) from a stand-in model of Seattle
+    traffic. With 500 points that's about 130,000 numbers, which we keep
+    in a big square table: row = start, column = destination. One detail:
+    A→B and B→A can differ a little, and a flat drawing can only show
+    one distance per pair, so we average the two directions.
+  </p>
+  <figure>
+    <svg viewBox="0 0 700 200">
+      <g transform="translate(40,30)">
+        <text x="120" y="-8" class="fs">minutes of driving, every pair</text>
+        <g>
+          <rect x="0" y="0" width="30" height="30" fill="var(--ok)" opacity="0.15"/><rect x="30" y="0" width="30" height="30" fill="var(--ok)" opacity="0.4"/><rect x="60" y="0" width="30" height="30" fill="var(--hot)" opacity="0.55"/><rect x="90" y="0" width="30" height="30" fill="var(--ok)" opacity="0.3"/><rect x="120" y="0" width="30" height="30" fill="var(--hot)" opacity="0.75"/>
+          <rect x="0" y="30" width="30" height="30" fill="var(--ok)" opacity="0.4"/><rect x="30" y="30" width="30" height="30" fill="var(--ok)" opacity="0.15"/><rect x="60" y="30" width="30" height="30" fill="var(--ok)" opacity="0.35"/><rect x="90" y="30" width="30" height="30" fill="var(--hot)" opacity="0.6"/><rect x="120" y="30" width="30" height="30" fill="var(--hot)" opacity="0.5"/>
+          <rect x="0" y="60" width="30" height="30" fill="var(--hot)" opacity="0.55"/><rect x="30" y="60" width="30" height="30" fill="var(--ok)" opacity="0.35"/><rect x="60" y="60" width="30" height="30" fill="var(--ok)" opacity="0.15"/><rect x="90" y="60" width="30" height="30" fill="var(--ok)" opacity="0.45"/><rect x="120" y="60" width="30" height="30" fill="var(--hot)" opacity="0.65"/>
+          <rect x="0" y="90" width="30" height="30" fill="var(--ok)" opacity="0.3"/><rect x="30" y="90" width="30" height="30" fill="var(--hot)" opacity="0.6"/><rect x="60" y="90" width="30" height="30" fill="var(--ok)" opacity="0.45"/><rect x="90" y="90" width="30" height="30" fill="var(--ok)" opacity="0.15"/><rect x="120" y="90" width="30" height="30" fill="var(--ok)" opacity="0.4"/>
+          <rect x="0" y="120" width="30" height="30" fill="var(--hot)" opacity="0.75"/><rect x="30" y="120" width="30" height="30" fill="var(--hot)" opacity="0.5"/><rect x="60" y="120" width="30" height="30" fill="var(--hot)" opacity="0.65"/><rect x="90" y="120" width="30" height="30" fill="var(--ok)" opacity="0.4"/><rect x="120" y="120" width="30" height="30" fill="var(--ok)" opacity="0.15"/>
+        </g>
+        <text x="-8" y="20" text-anchor="end" class="fsoft">from A</text>
+        <text x="-8" y="50" text-anchor="end" class="fsoft">from B</text>
+        <text x="-8" y="80" text-anchor="end" class="fsoft">from C</text>
+        <text x="-8" y="110" text-anchor="end" class="fsoft">from D</text>
+        <text x="-8" y="140" text-anchor="end" class="fsoft">from E</text>
+      </g>
+      <g transform="translate(280,90)">
+        <text x="0" y="10" class="fs">green = quick trip</text>
+        <text x="0" y="34" class="fs" fill="var(--hot)">red = slow trip</text>
+        <text x="0" y="64" class="fsoft">the diagonal is zero: a place to itself</text>
+        <text x="0" y="86" class="fsoft">crossings show up as red stripes</text>
+      </g>
+    </svg>
+    <figcaption>
+      The whole dataset is just this table, scaled up. Nothing about maps
+      has happened yet; it's purely "how long from here to there."
+    </figcaption>
+  </figure>
+
+  <h2>3. Let springs find the layout</h2>
+  <p>
+    Now the key move. Imagine every pair of points connected by a spring
+    whose natural length is their driving time. Short times want to pull
+    points together; long times push them apart. Release the whole
+    tangle and let it settle. Where it comes to rest is the time-map:
+    the arrangement where screen distances match driving times as well
+    as they possibly can.
+  </p>
+  <p>
+    The algorithm is called <strong>multidimensional scaling</strong>.
+    A clever bit of linear algebra (worth looking up: classical MDS)
+    finds a good starting arrangement in one shot, and then an iterative
+    step (SMACOF) plays out the spring-settling: each point repeatedly
+    asks, for every other point, "where would I need to stand for our
+    distance to be exactly right?" and moves to the average of the
+    answers. Every round provably lowers the total mismatch.
+  </p>
+  <figure>
+    <svg viewBox="0 0 700 230">
+      <g transform="translate(30,20)">
+        <text x="80" y="0" class="fs">springs at their natural lengths…</text>
+        <circle cx="60" cy="60" r="6" fill="var(--accent)"/>
+        <circle cx="200" cy="50" r="6" fill="var(--accent)"/>
+        <circle cx="130" cy="160" r="6" fill="var(--accent)"/>
+        <path d="M66,58 l18,-2 l-12,-6 l18,-2 l-12,-6 l18,-2 l-12,-6 l18,-2 l30,26" stroke="var(--soft)" fill="none"/>
+        <text x="110" y="30" class="fsoft">10 min</text>
+        <path d="M64,66 q-14,40 8,50 q22,10 12,30 q-10,20 40,12" stroke="var(--soft)" fill="none"/>
+        <text x="30" y="130" class="fsoft">12 min</text>
+        <path d="M196,56 q30,50 -20,60 q-40,8 -40,40" stroke="var(--hot)" fill="none" stroke-width="2"/>
+        <text x="185" y="120" class="fsoft" fill="var(--hot)">45 min (bridge)</text>
+      </g>
+      <g transform="translate(420,20)">
+        <text x="30" y="0" class="fs">…settle into the layout</text>
+        <circle cx="40" cy="70" r="6" fill="var(--accent)"/>
+        <circle cx="120" cy="60" r="6" fill="var(--accent)"/>
+        <circle cx="230" cy="170" r="6" fill="var(--accent)"/>
+        <line x1="40" y1="70" x2="120" y2="60" stroke="var(--soft)"/>
+        <line x1="40" y1="70" x2="230" y2="170" stroke="var(--hot)" stroke-width="2"/>
+        <line x1="120" y1="60" x2="230" y2="170" stroke="var(--hot)" stroke-width="2"/>
+        <text x="52" y="52" class="fsoft">close: quick</text>
+        <text x="120" y="140" class="fsoft" fill="var(--hot)">far: slow</text>
+      </g>
+    </svg>
+    <figcaption>
+      The slow bridge pair ends up far apart on screen even though it's
+      short as the crow flies. No one decides that; the springs do.
+    </figcaption>
+  </figure>
+
+  <h2>4. Turn it right side up</h2>
+  <p>
+    The spring layout is correct about distances but says nothing about
+    direction: it comes out arbitrarily rotated, and sometimes mirrored,
+    because turning or flipping the whole picture changes no distance.
+    So the final step slides, turns, and if needed un-mirrors the layout
+    until it lines up with real geography as closely as possible (the
+    technique is called Procrustes alignment). That's why north is up
+    and the map still reads as Seattle. We got this wrong at first, with
+    a sign error applying the rotation backwards, and the map visibly
+    spun as it morphed.
+  </p>
+  <figure>
+    <svg viewBox="0 0 700 210">
+      <g transform="translate(60,25)">
+        <text x="0" y="0" class="fs">raw spring layout</text>
+        <g transform="translate(70,90) rotate(-38)">
+          <path d="M-40,-55 L40,-55 L52,0 L30,60 L-30,60 L-50,5 Z" fill="none" stroke="var(--accent)" stroke-width="2"/>
+          <text x="-16" y="-38" class="fsoft" transform="rotate(38)">?</text>
+        </g>
+      </g>
+      <g transform="translate(300,95)">
+        <text x="6" y="-12" class="fsoft">turn + flip + slide</text>
+        <path d="M0,0 h80" stroke="var(--soft)" stroke-width="2" marker-end="url(#arr)"/>
+        <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--soft)"/></marker></defs>
+      </g>
+      <g transform="translate(470,25)">
+        <text x="0" y="0" class="fs">aligned to geography</text>
+        <g transform="translate(70,95)">
+          <path d="M-40,-55 L40,-55 L52,0 L30,60 L-30,60 L-50,5 Z" fill="none" stroke="var(--ok)" stroke-width="2"/>
+          <text x="-8" y="-30" class="fsoft">N ↑</text>
+        </g>
+      </g>
+    </svg>
+    <figcaption>
+      Same shape, same distances, now facing the way you expect. Only
+      turns, flips, slides, and one overall zoom are allowed here; the
+      stretching itself is never touched.
+    </figcaption>
+  </figure>
+
+  <h2>5. What a flat map can't do</h2>
+  <p>
+    Here's the deep limitation, and the most interesting part. Take two
+    spots facing each other across the Ship Canal: 15 minutes apart by
+    car (over a bridge), and each 10 minutes from that bridge. Try to
+    draw all three with distances matching times. You can't. The two
+    banks want to be far apart, but they're both close to the same
+    bridge, which drags them back together. Travel time just doesn't
+    behave like distance on a flat sheet.
+  </p>
+  <p>
+    So the layout is a best compromise, and we measure how much each
+    point had to compromise. That number is called <strong>stress</strong>,
+    and it's what the dot sizes on the map show. High stress isn't
+    failure; it's the map pointing at the places where geography and
+    time disagree the most. In Seattle, that's the water crossings,
+    which is the story of the city in one statistic.
+  </p>
+  <figure>
+    <svg viewBox="0 0 700 220">
+      <g transform="translate(70,30)">
+        <path d="M0,78 C90,64 180,92 260,74 L260,102 C180,120 90,92 0,106 Z" fill="var(--water)" opacity="0.7"/>
+        <circle cx="30" cy="52" r="7" fill="var(--hot)"/>
+        <text x="12" y="36" class="fs">A</text>
+        <circle cx="52" cy="146" r="7" fill="var(--hot)"/>
+        <text x="34" y="168" class="fs">B</text>
+        <circle cx="238" cy="88" r="7" fill="var(--ok)"/>
+        <text x="250" y="82" class="fs">bridge</text>
+        <path d="M36,57 C100,70 180,74 231,84" stroke="var(--soft)" stroke-dasharray="4 3" fill="none"/>
+        <text x="110" y="56" class="fsoft">A→bridge: 10 min</text>
+        <path d="M58,142 C120,128 180,104 231,92" stroke="var(--soft)" stroke-dasharray="4 3" fill="none"/>
+        <text x="112" y="140" class="fsoft">B→bridge: 10 min</text>
+        <line x1="33" y1="60" x2="50" y2="138" stroke="var(--hot)" stroke-width="2"/>
+        <text x="-4" y="105" class="fsoft" fill="var(--hot)">A→B: 15 min?!</text>
+      </g>
+      <g transform="translate(420,60)">
+        <text x="0" y="0" class="fs">on paper, A→B could be at most</text>
+        <text x="0" y="24" class="fs">10 + 10 = 20 and at least 0…</text>
+        <text x="0" y="56" class="fs">but it also "wants" to be much</text>
+        <text x="0" y="80" class="fs">farther than it looks. Every choice</text>
+        <text x="0" y="104" class="fs">betrays some pair. The leftover</text>
+        <text x="0" y="128" class="fs">error is the stress we draw as</text>
+        <text x="0" y="152" class="fs">dot size.</text>
+      </g>
+    </svg>
+    <figcaption>
+      Times refuse to be flat. The map absorbs what it can and honestly
+      reports the rest.
+    </figcaption>
+  </figure>
+
+  <h2>Fine print</h2>
+  <p>
+    The current site runs on a modeled time table (fast north-south,
+    slow east-west, penalties at the crossings), which is enough to
+    demonstrate the machinery. Swapping in measured times from a routing
+    API changes only step 2; everything else is untouched. The pipeline
+    is about 500 lines of dependency-free JavaScript, and the code for
+    every step is in the
+    <a href="https://github.com/mattkindy/seattle-map">repository</a>.
+  </p>
+</main>
+</html>
