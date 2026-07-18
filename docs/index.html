@@ -20,11 +20,13 @@
             --mesh: #667; --card: #1a1e22; --line: #2c333a; --hot: #ff5a4e; }
   }
   * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   body {
     margin: 0;
     font: 17px/1.65 georgia, "times new roman", serif;
     background: var(--bg);
     color: var(--ink);
+    overflow-wrap: break-word;
   }
   main { max-width: 680px; margin: 0 auto; padding: 40px 16px 72px; }
   .kicker {
@@ -64,6 +66,12 @@
   .caption {
     font: 13px/1.5 system-ui, sans-serif; color: var(--soft);
     border-top: 1px solid var(--line); padding-top: 8px; margin: 10px 0 34px;
+  }
+  @media (max-width: 480px) {
+    body { font-size: 16px; }
+    main { padding: 28px 12px 56px; }
+    h1 { font-size: 30px; }
+    .dek { font-size: 18px; }
   }
   .methodology {
     font: 13px/1.6 system-ui, sans-serif;
