@@ -186,8 +186,8 @@ function procrustes(X, G) {
     syx += Gc[i][1] * Xc[i][0];
     syy += Gc[i][1] * Xc[i][1];
   }
-  // 2x2 SVD via rotation angle; allow reflection by checking det.
-  const theta = Math.atan2(sxy - syx, sxx + syy);
+  // Optimal rotation for max trace(G^T R X): atan2(syx - sxy, sxx + syy).
+  const theta = Math.atan2(syx - sxy, sxx + syy);
   const det = sxx * syy - sxy * syx;
   const reflect = det < 0;
   const cos = Math.cos(theta);
