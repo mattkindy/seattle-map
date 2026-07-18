@@ -89,7 +89,7 @@
     the driver's seat, and Seattle changes shape: the bridges stretch,
     and the far side of the water gets farther.
   </p>
-  <p class="byline">The times behind this version are modeled, not measured. See the note on the data below.</p>
+  <p class="byline">Times are free-flow drives at posted speed limits on the real road network. No traffic yet. See the note below.</p>
 
   <p>
     Ballard and Magnolia face each other across Salmon Bay, close
@@ -121,21 +121,28 @@
 
   <h2>What to look for</h2>
   <p>
-    The city grows wider as you drag. North-south driving is fast on
-    Interstate 5 and Highway 99, so those distances barely change.
-    East-west driving is slower, on surface streets, so the map
-    stretches sideways to make room for the extra minutes.
+    North-south distances compress as you drag. Interstate 5 and
+    Highway 99 make north-south driving fast, so those trips take fewer
+    minutes than their mileage suggests, and the city draws taller and
+    narrower.
   </p>
   <p>
-    The bridges stretch most of all. Measured in minutes, the two banks
-    of the Ship Canal are farther apart than they look on paper, and
-    the red crossings lengthen to span the difference. The same happens
-    over the Duwamish on the way to West Seattle.
+    The bridges stretch. A trip across the Ship Canal or the Duwamish
+    has to reach a crossing and back, so the two banks sit a little
+    farther apart in minutes than in miles, and the red bridge lines
+    lengthen to match.
   </p>
   <p>
-    And some dots grow. A flat map cannot match every driving time at
-    once, so some drawn distances end up off. A dot's size shows how
-    far off the distances around it ended up: the map's error bars,
+    The distortion here is real but gentle, because free-flow speed
+    limits leave out the thing that actually bends Seattle: traffic.
+    Rush-hour congestion falls hardest on the east-west surface streets,
+    and adding it is the next step. Expect the city to widen a good deal
+    more once it lands.
+  </p>
+  <p>
+    Some dots grow as you drag. A flat map cannot match every driving
+    time at once, so some drawn distances end up off. A dot's size shows
+    how far off the distances around it ended up: the map's error bars,
     drawn in place.
   </p>
 
@@ -151,23 +158,23 @@
     and that difference is what an ordinary map cannot show.
   </p>
   <p>
-    No cartographer drew the stretched city. A computer took roughly
-    270,000 point-to-point driving times and arranged about 700 points
-    so that the distances between them match the times as closely as
-    possible. The result is what Seattle looks like when distance means
-    time. <a href="./math.html">How we made this map</a> walks through
-    the method, with pictures.
+    No cartographer drew the stretched city. A computer routed roughly
+    270,000 point-to-point drives over the real street network and
+    arranged about 700 points so that the distances between them match
+    the times as closely as possible. The result is what Seattle looks
+    like when distance means time. <a href="./math.html">How we made
+    this map</a> walks through the method, with pictures.
   </p>
 
   <div class="methodology">
     <p>
-      <strong>About the data.</strong> The driving times in this version
-      come from a simplified traffic model of Seattle (fast north-south
-      corridors, slower surface streets, delays at the water crossings),
-      built so the method could be developed and judged before
-      collecting real data. Measured drive times from a routing service
-      are the planned replacement and slot into the same pipeline
-      without changing the map's machinery. Code and pipeline:
+      <strong>About the data.</strong> The driving times here are
+      free-flow: each pair of points is routed over Seattle's real road
+      network (OpenStreetMap) with every road driven at its posted speed
+      limit and no traffic. That captures the geometry exactly, water,
+      bridges, and one-way streets included, but it understates the
+      east-west delay that congestion adds. Traffic is the next step,
+      and it slots into the same pipeline. Code and method:
       <a href="https://github.com/mattkindy/seattle-map">github.com/mattkindy/seattle-map</a>.
     </p>
   </div>

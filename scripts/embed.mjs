@@ -51,16 +51,18 @@ for (let i = 0; i < n; i++) {
   }
 }
 if (nulls > 0) {
+  const finite = D.flat().filter((v) => Number.isFinite(v));
+  const globalMean = finite.reduce((s, v) => s + v, 0) / finite.length;
   for (let i = 0; i < n; i++) {
     const row = D[i].filter((v) => Number.isFinite(v));
-    const mean = row.reduce((s, v) => s + v, 0) / row.length;
+    const mean = row.length ? row.reduce((s, v) => s + v, 0) / row.length : globalMean;
     for (let j = 0; j < n; j++) {
       if (!Number.isFinite(D[i][j])) {
         D[i][j] = mean;
       }
     }
   }
-  console.log(`matrix: filled ${nulls} unroutable pairs with row means`);
+  console.log(`matrix: filled ${nulls} unroutable pairs`);
 }
 
 // ------------------------------------------------------------------

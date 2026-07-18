@@ -23,6 +23,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { buildGraph, driveMatrix } from "../src/roadRouter.mjs";
+
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const grid = JSON.parse(
   fs.readFileSync(path.join(root, "data", "grid.json"), "utf8"),
@@ -171,9 +173,23 @@ function nextWednesday13LocalEpoch() {
 }
 
 // --------------------------------------------------------------------
+// Speed-limit routing over the real OSM road network (no traffic).
+// --------------------------------------------------------------------
+
+function buildRoad() {
+  const osmPath = path.join(root, "data", "osm.json");
+  const osm = JSON.parse(fs.readFileSync(osmPath, "utf8"));
+  process.stderr.write(`road: building graph from ${osm.elements.length} elements …\n`);
+  const graph = buildGraph(osm.elements);
+  process.stderr.write(`road: ${graph.n} nodes, ${graph.head.length} directed edges\n`);
+  return driveMatrix(graph, anchors);
+}
+
+// --------------------------------------------------------------------
 
 const key = process.env.GOOGLE_MAPS_API_KEY;
-const provider = key ? "google" : "synthetic";
+const hasOsm = fs.existsSync(path.join(root, "data", "osm.json"));
+const provider = key ? "google" : hasOsm ? "road" : "synthetic";
 if (provider === "google") {
   const elements = n * n;
   console.log(
@@ -181,7 +197,12 @@ if (provider === "google") {
       `Check Distance Matrix pricing for this volume before large runs.`,
   );
 }
-const seconds = key ? await buildGoogle(key) : buildSynthetic();
+const seconds =
+  provider === "google"
+    ? await buildGoogle(key)
+    : provider === "road"
+      ? buildRoad()
+      : buildSynthetic();
 
 fs.writeFileSync(
   path.join(root, "data", "matrix.json"),

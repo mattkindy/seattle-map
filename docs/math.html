@@ -83,14 +83,15 @@
 
   <h2>Step 2: Time every pair</h2>
   <p>
-    Next, every pair of points gets a driving time, from a routing
-    service such as Google Maps, or, in the current version, from a
-    simplified model of Seattle traffic. With 700 points that comes to
-    about 270,000 numbers, kept in one big table: a row for the start,
-    a column for the destination. One wrinkle: driving from A to B
-    rarely takes exactly as long as driving back, and a drawing can
-    only show one distance between two points, so we average the two
-    directions.
+    Next, every pair of points gets a driving time. The current version
+    routes each drive over Seattle's real street network, taken from
+    OpenStreetMap, with every road driven at its posted speed limit.
+    (Traffic comes later.) With 700 points that is about 270,000
+    numbers, kept in one big table: a row for the start, a column for
+    the destination. One wrinkle: driving from A to B rarely takes
+    exactly as long as driving back, one-way streets alone see to that,
+    and a drawing can only show one distance between two points, so we
+    average the two directions.
   </p>
   <figure>
     <svg viewBox="0 0 700 360">
@@ -271,14 +272,12 @@
 
   <h2>A note on the data</h2>
   <p>
-    The current site runs on a modeled time table: fast north-south
-    corridors, slower surface streets, delays at the crossings. The
-    model exists so the method could be built and judged before paying
-    for real measurements. Swapping in measured times from a routing
-    service such as Google Maps changes only Step 2; every other step
-    stays the same. The full pipeline is about 500 lines of plain
-    JavaScript, published in the
-    <a href="https://github.com/mattkindy/seattle-map">repository</a>.
+    The current site routes over the real road network at free-flow
+    speed limits: exact geometry, no traffic. Adding congestion, or
+    swapping in measured times from a routing service, changes only
+    Step 2; every other step stays the same. The routing engine and the
+    full pipeline are about 800 lines of plain JavaScript, published in
+    the <a href="https://github.com/mattkindy/seattle-map">repository</a>.
   </p>
 </main>
 </html>

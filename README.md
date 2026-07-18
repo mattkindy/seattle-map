@@ -15,12 +15,13 @@ shear at the bridges.
 
 1. `scripts/generateGrid.mjs` lays a hex grid of anchor points over the
    city and drops the ones in water (about 730 anchors).
-2. `scripts/fetchMatrix.mjs` builds the pairwise drive-time matrix.
-   With `GOOGLE_MAPS_API_KEY` set it uses the Distance Matrix API in
-   25x25 blocks (price out n^2 elements before a dense run). Without a
-   key it uses a synthetic Seattle model (fast north-south, slow
-   east-west, bridge penalties) so the whole pipeline runs with zero
-   setup.
+2. `scripts/fetchOsm.mjs` downloads Seattle's drivable road network
+   from OpenStreetMap (Overpass), and `scripts/fetchMatrix.mjs` routes
+   every pair over it at posted speed limits (a from-scratch graph plus
+   Dijkstra in `src/roadRouter.mjs`, no dependencies). Free-flow, no
+   traffic. With `GOOGLE_MAPS_API_KEY` set it uses the Distance Matrix
+   API instead; a synthetic model is the fallback when no road data is
+   present.
 3. `scripts/embed.mjs` runs multidimensional scaling (classical MDS +
    SMACOF refinement, no dependencies) to place anchors so screen
    distance approximates drive time, then Procrustes-aligns the result
@@ -37,10 +38,11 @@ npm run pipeline   # grid -> matrix -> embedding (synthetic by default)
 open docs/index.html
 ```
 
-First sanity result from the synthetic matrix: Northgate to Columbia
-City (north-south) compresses to 0.90x its geographic distance, while
-Ballard to the U District (east-west on slow surface streets) stretches
-to 1.64x.
+First results on the real road network (free-flow speed limits): the
+embedding fits with stress 0.058, and north-south trips compress to
+about 0.90x their geographic distance. The east-west stretch is modest
+at free-flow, which is the honest signal that traffic, not geometry, is
+what bends Seattle most.
 
 ## Where this goes
 

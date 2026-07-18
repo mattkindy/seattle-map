@@ -8,6 +8,7 @@
     "grid": "node scripts/generateGrid.mjs",
     "matrix": "node scripts/fetchMatrix.mjs",
     "embed": "node scripts/embed.mjs",
-    "pipeline": "node scripts/pipeline.mjs"
+    "pipeline": "node scripts/pipeline.mjs",
+    "osm": "node scripts/fetchOsm.mjs"
   }
 }
