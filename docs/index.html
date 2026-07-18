@@ -193,7 +193,7 @@
   const px = (p) => [(p[0] - x0) * s, H - (p[1] - y0) * s];
 
   const LANDMARKS = [
-    ["Downtown", 47.608, -122.335],
+    ["Pike Place", 47.6094, -122.3417],
     ["Ballard", 47.668, -122.384],
     ["U District", 47.66, -122.313],
     ["Fremont", 47.6535, -122.3505],
@@ -201,6 +201,14 @@
     ["Columbia City", 47.56, -122.287],
     ["West Seattle", 47.566, -122.387],
     ["Northgate", 47.708, -122.328],
+    ["Magnolia", 47.6404, -122.3997],
+    ["Queen Anne", 47.637, -122.357],
+    ["Wallingford", 47.6615, -122.3341],
+    ["Green Lake", 47.6805, -122.322],
+    ["Beacon Hill", 47.579, -122.311],
+    ["Georgetown", 47.548, -122.323],
+    ["Madison Park", 47.635, -122.28],
+    ["Lake City", 47.719, -122.295],
   ];
   const landmarkRefs = LANDMARKS.map(([name, lat, lng]) => {
     const g = [lng * kmLng, lat * 111.32];
