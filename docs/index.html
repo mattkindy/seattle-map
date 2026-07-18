@@ -100,10 +100,9 @@
     neighborhoods are nowhere near each other.
   </p>
   <p>
-    The map below takes the driver's side of the argument. It places
-    every point in the city at a distance that reflects driving time
-    rather than mileage. Drag the slider and watch the city move from
-    the map you know to the city you actually live in.
+    The map below redraws the city with driving time as its measure of
+    distance. Drag the slider and watch Seattle move from the map you
+    know to the shape of its drives.
   </p>
 
   <div class="mapwrap">
@@ -114,50 +113,49 @@
     </div>
     <svg id="map" class="map" viewBox="0 0 760 900"></svg>
     <p class="caption" id="meta">
-      Each dot is a sample point. Red lines are the bridges. Larger dots
-      mark places where no flat map can fully honor the driving times.
+      Each dot is a sample point. Red lines are the bridges. As the
+      city stretches, a dot grows where the drawn distances around it
+      least match the driving times.
     </p>
   </div>
 
   <h2>What to look for</h2>
   <p>
-    The city grows wider as you drag. North-south trips ride Interstate
-    5 and Highway 99, so those distances barely move. East-west trips
-    crawl across the grid, so the map stretches sideways to make room
-    for the lost minutes.
+    The city grows wider as you drag. North-south driving is fast on
+    Interstate 5 and Highway 99, so those distances barely change.
+    East-west driving is slower, on surface streets, so the map
+    stretches sideways to make room for the extra minutes.
   </p>
   <p>
-    The bridges stretch most of all. In clock terms, the two banks of
-    the Ship Canal are simply farther apart than they look, and the red
-    crossings lengthen to span the difference. The same happens over the
-    Duwamish on the way to West Seattle.
+    The bridges stretch most of all. Measured in minutes, the two banks
+    of the Ship Canal are farther apart than they look on paper, and
+    the red crossings lengthen to span the difference. The same happens
+    over the Duwamish on the way to West Seattle.
   </p>
   <p>
-    And some dots swell. A flat map cannot satisfy every driving time at
-    once; somewhere, it has to fudge. The dot size shows how much
-    fudging each place required. The largest dots cluster at the water
-    crossings, which is Seattle's traffic story told in a single
-    statistic.
+    And some dots grow. A flat map cannot match every driving time at
+    once, so some drawn distances end up off. A dot's size shows how
+    far off the distances around it ended up: the map's error bars,
+    drawn in place.
   </p>
 
-  <h2>Why Seattle bends this way</h2>
+  <h2>Why Seattle</h2>
   <p>
-    Most cities have traffic. Seattle has geometry. The city is a
-    north-south strip pinched between Puget Sound and Lake Washington
-    and cut across its waist by a canal. The fast roads run the long
-    way; the short way crosses water. Travel time here depends on
-    compass direction to a degree few American cities match, and that
-    directional difference is precisely what an ordinary map cannot
-    show.
+    Seattle's roads are unusually directional. The city is a
+    north-south strip between Puget Sound and Lake Washington, cut
+    across the middle by the Ship Canal. The fast roads run
+    north-south; east-west routes use surface streets or cross water at
+    a handful of bridges. Travel time here depends on direction more
+    than in most American cities, and that difference is what an
+    ordinary map cannot show.
   </p>
   <p>
-    No cartographer drew the stretched city. A computer was given
-    roughly 130,000 point-to-point driving times and asked to arrange
-    500 points so that the distances between them match the clock as
-    closely as possible. The shape that emerges is the answer to a
-    question: what would Seattle look like if distance meant time?
-    <a href="./math.html">How we made this map</a> walks through the
-    method, with pictures.
+    No cartographer drew the stretched city. A computer took roughly
+    130,000 point-to-point driving times and arranged about 700 points
+    so that the distances between them match the times as closely as
+    possible. The result is what Seattle looks like when distance means
+    time. <a href="./math.html">How we made this map</a> walks through
+    the method, with pictures.
   </p>
 
   <div class="methodology">
@@ -259,7 +257,7 @@
       const el = dotEls[i];
       el.setAttribute("cx", pos[i][0]);
       el.setAttribute("cy", pos[i][1]);
-      el.setAttribute("r", 1.5 + Math.min(a.stress / 120, 3));
+      el.setAttribute("r", 1.5 + t * Math.min(a.stress / 120, 3));
     });
     landmarkRefs.forEach(({ g, refs }, k) => {
       const base = px(g);

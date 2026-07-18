@@ -23,11 +23,10 @@ const BOUNDS = {
   east: -122.24,
 };
 
-// Hex spacing in degrees latitude (~0.0055 deg ≈ 610 m between rows).
-// Yields roughly 180-220 land anchors, a good v1 density: enough for
-// the warp to bend around the water, few enough that a 25x25-blocked
-// matrix fetch stays cheap.
-const ROW_SPACING = 0.0055;
+// Hex spacing in degrees latitude (~0.0045 deg ≈ 500 m between rows).
+// Dense enough that every water crossing gets opposite-bank anchors
+// close to its bridge; price out the matrix before a paid run.
+const ROW_SPACING = 0.0045;
 
 // Longitude degrees are compressed by cos(latitude); correct the column
 // spacing so hexes are near-equilateral on the ground.
@@ -88,19 +87,39 @@ const WATER = [
     ring: [
       [-122.343, 47.623],
       [-122.343, 47.649],
-      [-122.32, 47.649],
-      [-122.317, 47.638],
-      [-122.322, 47.623],
+      [-122.327, 47.649],
+      [-122.3235, 47.638],
+      [-122.327, 47.623],
+    ],
+  },
+  // North Lake Union: the lobe by Gas Works, up to the canal mouth.
+  {
+    name: "lake-union-north",
+    ring: [
+      [-122.339, 47.649],
+      [-122.339, 47.6535],
+      [-122.327, 47.6535],
+      [-122.327, 47.649],
     ],
   },
   // Portage Bay between Eastlake and Montlake.
   {
     name: "portage-bay",
     ring: [
-      [-122.322, 47.644],
-      [-122.322, 47.657],
-      [-122.303, 47.657],
+      [-122.331, 47.644],
+      [-122.331, 47.654],
+      [-122.303, 47.654],
       [-122.303, 47.644],
+    ],
+  },
+  // Montlake Cut: joins Portage Bay to Union Bay.
+  {
+    name: "montlake-cut",
+    ring: [
+      [-122.306, 47.6455],
+      [-122.306, 47.6515],
+      [-122.295, 47.6515],
+      [-122.295, 47.6455],
     ],
   },
   // Green Lake.
@@ -139,8 +158,8 @@ const WATER = [
     ring: [
       [-122.359, 47.52],
       [-122.359, 47.588],
-      [-122.338, 47.588],
-      [-122.338, 47.52],
+      [-122.335, 47.588],
+      [-122.335, 47.52],
     ],
   },
 ];
@@ -187,13 +206,12 @@ const BRIDGES = [
   ["Ballard Bridge", 47.6598, -122.3764],
   ["Fremont Bridge", 47.6476, -122.3497],
   ["Aurora Bridge", 47.6462, -122.3476],
-  ["I-5 Ship Canal Bridge", 47.6529, -122.3284],
   ["University Bridge", 47.6529, -122.3205],
   ["Montlake Bridge", 47.6473, -122.3045],
   ["West Seattle Bridge", 47.5706, -122.3524],
   ["1st Ave S Bridge", 47.5422, -122.3340],
 ];
-const BRIDGE_RADIUS_KM = 0.55;
+const BRIDGE_RADIUS_KM = 0.35;
 
 const kmPerDegLngLocal = 111.32 * Math.cos((LAT_MID * Math.PI) / 180);
 function kmBetween(a, b) {
@@ -202,12 +220,30 @@ function kmBetween(a, b) {
     (a.lng - b.lng) * kmPerDegLngLocal,
   );
 }
-function nearBridge(lat, lng) {
-  return BRIDGES.some(
-    ([, blat, blng]) =>
-      Math.hypot((lat - blat) * 111.32, (lng - blng) * kmPerDegLngLocal) <
-      BRIDGE_RADIUS_KM,
-  );
+function segmentBridgeIdx(a, b) {
+  // Distance from each bridge point to segment a-b, in km; a crossing
+  // belongs to a bridge only when the segment passes nearly over it.
+  const ax = a.lng * kmPerDegLngLocal;
+  const ay = a.lat * 111.32;
+  const bx = b.lng * kmPerDegLngLocal;
+  const by = b.lat * 111.32;
+  let best = -1;
+  let bd = Infinity;
+  BRIDGES.forEach(([, blat, blng], i) => {
+    const px = blng * kmPerDegLngLocal;
+    const py = blat * 111.32;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const len2 = dx * dx + dy * dy;
+    let t = len2 === 0 ? 0 : ((px - ax) * dx + (py - ay) * dy) / len2;
+    t = Math.max(0, Math.min(1, t));
+    const d = Math.hypot(ax + t * dx - px, ay + t * dy - py);
+    if (d < bd) {
+      bd = d;
+      best = i;
+    }
+  });
+  return bd < BRIDGE_RADIUS_KM ? best : -1;
 }
 
 // Mesh edges: neighbors within 1.5 grid steps. An edge whose sampled
@@ -215,14 +251,16 @@ function nearBridge(lat, lng) {
 // bridge, in which case it is kept and tagged.
 const STEP_KM = ROW_SPACING * 111.32;
 const edges = [];
+const crossingCandidates = [];
 for (let i = 0; i < anchors.length; i++) {
   for (let j = i + 1; j < anchors.length; j++) {
     const a = anchors[i];
     const b = anchors[j];
     const km = kmBetween(a, b);
     // Bridge crossings span the water, so opposite-bank anchors sit
-    // farther apart than on-land neighbors; give them extra reach.
-    if (km > STEP_KM * 2.8) {
+    // farther apart than on-land neighbors; give them extra reach. The
+    // two-shortest-per-bridge cap below keeps long diagonals out.
+    if (km > STEP_KM * 4.5) {
       continue;
     }
     let wet = false;
@@ -239,12 +277,23 @@ for (let i = 0; i < anchors.length; i++) {
         edges.push([i, j, 0]);
       }
     } else {
-      const midLat = (a.lat + b.lat) / 2;
-      const midLng = (a.lng + b.lng) / 2;
-      if (nearBridge(midLat, midLng)) {
-        edges.push([i, j, 1]);
+      const bridge = segmentBridgeIdx(a, b);
+      if (bridge >= 0) {
+        crossingCandidates.push({ i, j, km, bridge });
       }
     }
+  }
+}
+// One bridge = its two shortest crossing pairs, so every crossing
+// renders as a short, near-perpendicular deck instead of a fan of
+// long diagonals.
+crossingCandidates.sort((p, q) => p.km - q.km);
+const perBridge = new Map();
+for (const c of crossingCandidates) {
+  const used = perBridge.get(c.bridge) ?? 0;
+  if (used < 2) {
+    edges.push([c.i, c.j, 1]);
+    perBridge.set(c.bridge, used + 1);
   }
 }
 const bridgeEdges = edges.filter((e) => e[2] === 1).length;
