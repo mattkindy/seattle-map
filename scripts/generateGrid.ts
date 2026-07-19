@@ -11,6 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { dataFileExists, readJsonGz } from "../src/lib/data.ts";
 import type { Anchor, Grid, MeshEdge } from "../src/types.ts";
 import {
   buildWater,
@@ -196,7 +197,7 @@ function pointInRing(lng: number, lat: number, ring: Ring): boolean {
 // half), so the real geometry also samples the city more fairly.
 function realWaterRings(): Array<Array<[number, number]>> | null {
   const waterPath = path.join(root, "data", "water.json");
-  if (!fs.existsSync(waterPath)) {
+  if (!dataFileExists(waterPath)) {
     return null;
   }
   const rect = {
@@ -205,9 +206,7 @@ function realWaterRings(): Array<Array<[number, number]>> | null {
     e: BOUNDS.east + 0.02,
     w: BOUNDS.west - 0.02,
   };
-  const json = JSON.parse(fs.readFileSync(waterPath, "utf8")) as {
-    elements: OverpassGeomElement[];
-  };
+  const json = readJsonGz<{ elements: OverpassGeomElement[] }>(waterPath);
   const rings = buildWater(json.elements, rect);
   const failures = validateWater(rings);
   if (failures.length > 0) {

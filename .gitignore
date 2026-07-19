@@ -1,5 +1,7 @@
 node_modules/
 data/*
 !data/traffic-*.json
+!data/osm.json.gz
+!data/water.json.gz
 .env
 .DS_Store

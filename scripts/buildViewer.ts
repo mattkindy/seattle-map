@@ -25,6 +25,7 @@ import {
   type OsmElement,
   type RoadGraph,
 } from "../src/roadRouter.ts";
+import { dataFileExists, readJsonGz } from "../src/lib/data.ts";
 import type { Reading } from "../src/traffic/index.ts";
 import {
   buildWater,
@@ -313,10 +314,8 @@ export async function main(): Promise<void> {
   let graphs: Map<string, RoadGraph> | null = null;
   let snap: ((la: number, lo: number) => number) | null = null;
   let basemap: Basemap | null = null;
-  if (fs.existsSync(osmPath)) {
-    const osm = JSON.parse(fs.readFileSync(osmPath, "utf8")) as {
-      elements: OsmElement[];
-    };
+  if (dataFileExists(osmPath)) {
+    const osm = readJsonGz<{ elements: OsmElement[] }>(osmPath);
     const base = buildGraph(osm.elements);
     const { mask } = largestScc(base);
     snap = makeSnapper(base, mask, true);
@@ -328,16 +327,14 @@ export async function main(): Promise<void> {
     );
     const waterPath = path.join(dataDir, "water.json");
     let rings: LatLng[][];
-    if (fs.existsSync(waterPath)) {
+    if (dataFileExists(waterPath)) {
       const rect: Rect = {
         n: grid.bounds.north + 0.02,
         s: grid.bounds.south - 0.02,
         e: grid.bounds.east + 0.02,
         w: grid.bounds.west - 0.02,
       };
-      const waterJson = JSON.parse(fs.readFileSync(waterPath, "utf8")) as {
-        elements: OverpassGeomElement[];
-      };
+      const waterJson = readJsonGz<{ elements: OverpassGeomElement[] }>(waterPath);
       rings = buildWater(waterJson.elements, rect);
       const failures = validateWater(rings);
       for (const f of failures) {

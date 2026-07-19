@@ -12,6 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { dataFileExists, writeJsonGz } from "../src/lib/data.ts";
 import type { Grid } from "../src/types.ts";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -55,7 +56,7 @@ async function fetchOsm(query: string): Promise<{ elements: unknown[] }> {
 
 export async function main({ force = false } = {}): Promise<void> {
   const out = path.join(root, "data", "osm.json");
-  if (fs.existsSync(out) && !force) {
+  if (dataFileExists(out) && !force) {
     console.log("osm: data/osm.json already present (use --force to refresh)");
     return;
   }
@@ -72,8 +73,8 @@ out qt;`;
   const json = await fetchOsm(query);
   const ways = json.elements.filter((e) => (e as { type: string }).type === "way").length;
   const nodes = json.elements.filter((e) => (e as { type: string }).type === "node").length;
-  fs.writeFileSync(out, JSON.stringify(json));
-  console.log(`osm: ${ways} ways, ${nodes} nodes -> data/osm.json`);
+  writeJsonGz(out, json);
+  console.log(`osm: ${ways} ways, ${nodes} nodes -> data/osm.json.gz`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

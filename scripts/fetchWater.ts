@@ -12,6 +12,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import { dataFileExists, writeJsonGz } from "../src/lib/data.ts";
 import type { Grid } from "../src/types.ts";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
@@ -50,7 +51,7 @@ async function fetchOverpass(query: string): Promise<{ elements: unknown[] }> {
 
 export async function main({ force = false } = {}): Promise<void> {
   const out = path.join(root, "data", "water.json");
-  if (fs.existsSync(out) && !force) {
+  if (dataFileExists(out) && !force) {
     console.log("water: data/water.json already present (use --force to refresh)");
     return;
   }
@@ -76,9 +77,9 @@ out geom;`;
   for (const el of json.elements as Array<{ type: string }>) {
     kinds.set(el.type, (kinds.get(el.type) ?? 0) + 1);
   }
-  fs.writeFileSync(out, JSON.stringify(json));
+  writeJsonGz(out, json);
   console.log(
-    `water: ${[...kinds].map(([k, n]) => `${n} ${k}s`).join(", ")} -> data/water.json`,
+    `water: ${[...kinds].map(([k, n]) => `${n} ${k}s`).join(", ")} -> data/water.json.gz`,
   );
 }
 
