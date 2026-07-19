@@ -13,6 +13,7 @@
     --mesh: #999;
     --hot: #d0021b;
     --accent: #3a6ea5;
+    --alt: #c47f00;
     --road: #a3a8ad;
     --card: #fff;
     --line: #e2e2e2;
@@ -20,7 +21,7 @@
   @media (prefers-color-scheme: dark) {
     :root { --bg: #121517; --ink: #e6e6e6; --soft: #9a9a9a; --water: #23384a;
             --mesh: #667; --card: #1a1e22; --line: #2c333a; --hot: #ff5a4e;
-            --accent: #6f9fd0; --road: #4d5860; }
+            --accent: #6f9fd0; --alt: #e6a23c; --road: #4d5860; }
   }
   * { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
@@ -123,7 +124,7 @@
   .bridge { stroke: var(--hot); stroke-width: 1.5; opacity: 0.9; fill: none; visibility: hidden; }
   svg.xray .anchor, svg.xray .edge, svg.xray .bridge { visibility: visible; }
   .route-line { stroke: var(--accent); stroke-width: 2.5; opacity: 0.95; fill: none; }
-  .route-alt { stroke: var(--soft); stroke-width: 1.6; stroke-dasharray: 5 4; opacity: 0.75; fill: none; }
+  .route-alt { stroke: var(--alt); stroke-width: 1.8; stroke-dasharray: 5 4; opacity: 0.9; fill: none; }
   .route-end { fill: none; stroke: var(--accent); stroke-width: 2.5; }
   .label { font: 11px system-ui, sans-serif; fill: var(--ink); opacity: 0.95;
            paint-order: stroke; stroke: var(--bg); stroke-width: 3; }
@@ -180,10 +181,10 @@
     neighborhoods are nowhere near each other.
   </p>
   <p>
-    The map below redraws the city with driving time as its measure of
-    distance. Drag the slider and watch Seattle move from the map you
-    know to the shape of its drives. The buttons switch between an
-    empty-roads city and the same city at Friday rush.
+    The map below redraws the city using driving time as distance.
+    Drag the slider and watch Seattle move from the map you know to
+    the shape of its drives. The buttons switch between an empty-roads
+    city and the same city at Friday rush.
   </p>
 
   <div class="mapwrap">
@@ -209,48 +210,46 @@
 
   <h2>Five drives</h2>
   <p>
-    Ballard and Capitol Hill are four and a half miles apart, and the
-    drive takes about 13 minutes with no traffic. Northgate and Pike
-    Place are six and a half miles apart, half again as far, yet the
-    drive takes nine. So this map draws the first pair 25 percent
-    farther apart than geography would, and the second pair 39 percent
-    closer. Each row below reads the same way. Tapping one traces its
-    fastest route on the map as a solid line, with the shortest route
-    by distance dashed beside it; the shortest is rarely the fastest.
+    Ballard and Capitol Hill are four and a half miles apart. The
+    drive takes about 13 minutes on empty roads. Northgate and Pike
+    Place are two miles farther apart, yet that drive takes nine. So
+    the map draws Ballard and Capitol Hill 21 percent farther apart
+    than the miles say, and Northgate and Pike Place 40 percent
+    closer. Every row in the table works like that. Tap a row to see
+    the drive on the map: the solid line is the fastest way and the
+    dashed line is the shortest way. They are rarely the same road.
   </p>
   <table class="routes" id="routes"></table>
   <p class="caption">
-    Minutes are the average of the two directions. Free flow drives
-    every road at its posted limit; Friday evening slows the same roads
-    by measured traffic.
+    Minutes average the two directions of each trip. Free flow means
+    every road at its speed limit. Friday evening adds the measured
+    traffic.
   </p>
 
   <h2>What to look for</h2>
   <p>
-    North-south distances compress as you drag. Interstate 5 and
-    Highway 99 make north-south driving fast, so those trips take fewer
-    minutes than their mileage suggests, and the city draws taller and
-    narrower.
+    North-south distances shrink as you drag. Interstate 5 and
+    Highway 99 make north-south driving fast, so those trips take
+    fewer minutes than the miles suggest. The city squashes down the
+    middle while the water crossings pull it wide.
   </p>
   <p>
     The bridges stretch. A trip across the Ship Canal or the Duwamish
-    has to reach a crossing and back, so the two banks sit a little
-    farther apart in minutes than in miles, and the canal widens on the
-    page as they pull apart.
+    has to go find a bridge, so the two banks sit farther apart in
+    minutes than in miles. Watch the canal widen as they pull apart.
   </p>
   <p>
-    Then switch the map to Friday evening. Every trip gets longer, the
-    average by about a fifth, but not evenly. Congestion cuts the
-    freeway advantage, so north-south trips lose part of their
-    compression, while the crossings and the routes into downtown
-    stretch further. The two maps are the same city measured at two
-    different hours.
+    Then switch to Friday evening. Every trip gets longer, about a
+    fifth on average, but not evenly. Traffic hits the freeways
+    hardest, so the north-south shortcuts lose some of their edge,
+    and downtown pushes everything around it farther away. The two
+    maps are the same city at two different hours.
   </p>
   <p>
-    The X-ray button shows the machinery: the honeycomb of sample
-    points the map is built from. A flat map cannot match every driving
-    time at once, and a dot's size shows how far off the distances
-    around it ended up: the map's error bars, drawn in place.
+    The X-ray button shows what the map is built from: a honeycomb of
+    sample points. No flat map can match every driving time at once,
+    so some distances come out wrong. The bigger a dot, the more the
+    map had to fudge the distances around it.
   </p>
 
   <h2>Why Seattle</h2>
@@ -265,10 +264,11 @@
     and that difference is what an ordinary map cannot show.
   </p>
   <p>
-    A computer routed roughly 270,000 point-to-point drives for each
-    version of the map over the street network and arranged about 700 points so that the
-    distances between them match the times as closely as possible. The
-    result is what Seattle looks like when distance means time.
+    To build it, a computer routed about 780,000 drives between 880
+    points on the street network, then nudged the points around until
+    the distances between them matched the driving times as closely as
+    possible. That arrangement is what Seattle looks like when
+    distance means time.
     <a href="./math.html">How we made this map</a> walks through the
     method, with pictures.
   </p>
@@ -287,12 +287,12 @@
       under the map.
     </p>
     <p>
-      Method, in full: <a href="./math.html">how we made this map</a>.
+      The full method: <a href="./math.html">how we made this map</a>.
       Code: <a href="https://github.com/mattkindy/seattle-map">github.com/mattkindy/seattle-map</a>.
     </p>
   </div>
 </main>
-<script src="./embedding.js?v=6fcf2449"></script>
+<script src="./embedding.js?v=7c72aff8"></script>
 <script type="module">
   const svg = document.getElementById("map");
   const NS = "http://www.w3.org/2000/svg";
@@ -549,11 +549,9 @@
   const meta = document.getElementById("meta");
   function renderMeta() {
     meta.textContent =
-      "Streets and shorelines bend as the city stretches. The solid " +
-      "blue line is the selected drive's fastest route; the dashed " +
-      "line is the shortest one by distance. X-ray reveals the " +
-      "sampling grid underneath: dots grow where the drawn distances " +
-      "least match the driving times. " + captureText(slices[active]);
+      "Streets and shorelines bend as the city stretches. Bigger " +
+      "X-ray dots mark the spots where the map strays farthest from " +
+      "the driving times. " + captureText(slices[active]);
   }
 
   const viewsEl = document.getElementById("views");
@@ -572,10 +570,10 @@
     const f = r.factor[sl.id];
     const drawn =
       f < 0.97
-        ? "drawn " + Math.round((1 - f) * 100) + "% closer than geography"
+        ? "drawn " + Math.round((1 - f) * 100) + "% closer than the miles say"
         : f > 1.03
-          ? "drawn " + Math.round((f - 1) * 100) + "% farther than geography"
-          : "drawn near its geographic distance";
+          ? "drawn " + Math.round((f - 1) * 100) + "% farther apart than the miles say"
+          : "drawn true to the miles";
     const cond = sl.capturedAt
       ? r.minutes[sl.id] + " min in " + sl.label.toLowerCase() + " traffic"
       : r.minutes[sl.id] + " min at free flow";

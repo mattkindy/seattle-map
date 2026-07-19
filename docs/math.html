@@ -72,14 +72,14 @@
   <p class="kicker">Methodology</p>
   <h1>How We Made This Map</h1>
   <p class="lede">
-    How 270,000 driving times become one stretched picture of Seattle,
+    How 780,000 driving times become one stretched picture of Seattle,
     in five steps. <a href="./index.html">Back to the map.</a>
   </p>
 
   <h2>Step 1: Sample the city</h2>
   <p>
     We can't measure the travel time from everywhere to everywhere, so
-    we start by covering the city with a honeycomb of about 700 sample
+    we start by covering the city with a honeycomb of about 880 sample
     points, one every 500 meters, and throwing out the ones that land
     in water. From here on, everything happens to these points. The
     rest of the city moves with its nearest points.
@@ -117,16 +117,17 @@
         offset by half a column.
       </p>
       <p>
-        Deciding which points are in water takes eleven hand-drawn
-        polygons that outline the sound, the lake, and the smaller
-        waterways. Each point is tested with the standard ray-casting
+        Deciding which points are in water uses the same shoreline
+        geometry the map draws: lake and bay polygons from
+        OpenStreetMap, plus the Sound assembled from its mapped
+        coastline. Each point is tested with the standard ray-casting
         trick: draw a line from the point out to the edge of the map
-        and count how many polygon borders it crosses. An odd count
-        means the point is inside. 733 points survive.
+        and count how many shoreline borders it crosses. An odd count
+        means the point is in water. 883 points survive on land.
       </p>
       <p>
-        The mesh you see on the map connects each surviving point to
-        its neighbors within about 1.6 grid steps. If a connecting line
+        The mesh behind the X-ray button connects each surviving point
+        to its neighbors within about 1.6 grid steps. If a connecting line
         touches water, it is deleted, with one exception: lines that
         pass within 350 meters of a named bridge are kept, because
         there the crossing exists. Each bridge keeps only its two
@@ -142,9 +143,9 @@
     routed over Seattle's street network, taken from OpenStreetMap,
     with every road driven at its posted speed limit; the Friday
     evening version then slows each road by congestion measured near
-    the sample points. With 700 points that is about 270,000 numbers
-    per version, kept in one big table: a row for the start, a column for the
-    destination. One wrinkle: driving from A to B rarely takes exactly
+    the sample points. With 880 points that is about 780,000 numbers
+    per version, kept in one big table: a row for the start, a column
+    for the destination. One wrinkle: driving from A to B rarely takes exactly
     as long as driving back, one-way streets alone make the two
     directions differ, and a drawing can only show one distance between
     two points, so we average the two directions.
@@ -168,7 +169,7 @@
       </g>
     </svg>
     <figcaption>
-      The whole dataset is a table like this, scaled up to more than 700 rows and
+      The whole dataset is a table like this, scaled up to more than 880 rows and
       columns. Green cells are quick trips, red cells slow ones. The
       water crossings show up as bands of red. Nothing about maps has
       happened yet.
@@ -195,7 +196,7 @@
         inside it. That set holds 98% of the network. Each sample point
         then snaps to its nearest node in the set, and one run of
         Dijkstra's algorithm gives the time from that point to every
-        other node. 733 runs fill the whole table in a few seconds.
+        other node. 883 runs fill the whole table in a few seconds.
       </p>
       <p>
         Traffic enters as a per-edge multiplier. TomTom reports, for
@@ -425,7 +426,7 @@
         The reported number is Kruskal's stress-1:
         <code>&radic;(&Sigma;(d&#7522;&#11388; - &delta;&#7522;&#11388;)&sup2; / &Sigma;&delta;&#7522;&#11388;&sup2;)</code>,
         the residual as a fraction of the total. The free-flow map
-        fits at 0.135, the Friday evening map at 0.119. Congestion
+        fits at 0.124, the Friday evening map at 0.111. Congestion
         makes the times more uniform, and more uniform distances flatten
         into two dimensions with less error. Each anchor's dot radius
         scales with its share of the residual.
@@ -455,7 +456,7 @@
     traffic flow service</a>, which reports live speeds from vehicle
     probes. Swapping either source, or adding a new hour of the day,
     changes only Step 2; every other step stays the same. The routing
-    engine and the full pipeline are about a thousand lines of
+    engine and the full pipeline are a couple of thousand lines of
     dependency-free TypeScript, published in the
     <a href="https://github.com/mattkindy/seattle-map">repository</a>.
   </p>

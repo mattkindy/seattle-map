@@ -21,7 +21,8 @@ The pipeline is a chain of small TypeScript scripts, each writing a JSON
 file the next one reads:
 
 1. `scripts/generateGrid.ts` lays a hex grid over the city, drops
-   points in water, and connects neighbors into a mesh (733 anchors).
+   points in water (real OSM shoreline geometry once fetched), and
+   connects neighbors into a mesh (883 anchors).
 2. `scripts/fetchOsm.ts` downloads the drivable street network from
    [OpenStreetMap](https://www.openstreetmap.org/about) via Overpass.
    OSM supplies each road's shape, speed limit, and one-way rules
@@ -69,11 +70,11 @@ pipeline itself has no runtime dependencies.
 
 At posted speed limits, north-south freeway trips draw at about
 two-thirds of their geographic distance (Green Lake to Georgetown:
-0.62x) while east-west water crossings stretch to half again as far
-(Magnolia to Capitol Hill: 1.55x). Friday-evening traffic lengthens the
+0.61x) while east-west water crossings stretch to half again as far
+(Magnolia to Capitol Hill: 1.53x). Friday-evening traffic lengthens the
 average trip by roughly a fifth and cuts the freeway advantage, so the
 compressed routes give some distance back while the crossings stretch
-further. Fit quality (stress-1): 0.135 free-flow, 0.119 with traffic.
+further. Fit quality (stress-1): 0.124 free-flow, 0.111 with traffic.
 
 ## Where this goes
 
