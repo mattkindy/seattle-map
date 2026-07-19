@@ -1,55 +1,81 @@
 # Seattle Map
 
-Live map: https://mattkindy.github.io/seattle-map/ (with a
-[plain-language explanation](https://mattkindy.github.io/seattle-map/) and an
+Live map: https://mattkindy.github.io/seattle-map/ (with an
 [illustrated math page](https://mattkindy.github.io/seattle-map/math.html)).
 
 A time-space cartogram of Seattle: a map where the distance between two
-points reflects how long it takes to travel between them, not how far
-apart they are. Seattle is a good subject because travel time is so
-direction-dependent: north-south rides fast corridors while east-west
-fights water crossings, so the city should visibly stretch sideways and
-shear at the bridges.
+points reflects how long it takes to drive between them, not how far
+apart they sit. The map has two views, free-flow speed limits and
+measured Friday-evening traffic, and a slider that morphs the city
+between geography and drive-time shape.
+
+The idea came from a stay on Capitol Hill. Visiting friends in Ballard
+took far longer than the map distance suggested, while Phinney Ridge to
+downtown, which looks farther, went by quickly. Seattle's drive times
+depend on direction and water in a way geographic maps cannot show, so
+this project redraws the city with time as the ruler.
 
 ## How it works
 
-1. `scripts/generateGrid.mjs` lays a hex grid of anchor points over the
-   city and drops the ones in water (about 730 anchors).
-2. `scripts/fetchOsm.mjs` downloads Seattle's drivable road network
-   from OpenStreetMap (Overpass), and `scripts/fetchMatrix.mjs` routes
-   every pair over it at posted speed limits (a from-scratch graph plus
-   Dijkstra in `src/roadRouter.mjs`, no dependencies). Free-flow, no
-   traffic. With `GOOGLE_MAPS_API_KEY` set it uses the Distance Matrix
-   API instead; a synthetic model is the fallback when no road data is
-   present.
-3. `scripts/embed.mjs` runs multidimensional scaling (classical MDS +
-   SMACOF refinement, no dependencies) to place anchors so screen
-   distance approximates drive time, then Procrustes-aligns the result
-   back to geography so north stays up.
-4. `docs/index.html` is the site (GitHub Pages serves `docs/`): the
-   interactive map plus a plain-language explanation, with the math
-   walk-through in `docs/math.html`. It opens from disk too; the
-   embedding is inlined as `docs/embedding.js` at build time.
+The pipeline is a chain of small TypeScript scripts, each writing a JSON
+file the next one reads:
+
+1. `scripts/generateGrid.ts` lays a hex grid over the city, drops
+   points in water, and connects neighbors into a mesh (733 anchors).
+2. `scripts/fetchOsm.ts` downloads the drivable street network from
+   [OpenStreetMap](https://www.openstreetmap.org/about) via Overpass.
+   OSM supplies each road's shape, speed limit, and one-way rules
+   (© OpenStreetMap contributors).
+3. `scripts/fetchTraffic.ts` captures a named traffic slice: a slowdown
+   reading near every anchor, from
+   [TomTom's flow API](https://developer.tomtom.com/traffic-api/documentation/tomtom-maps/traffic-flow/flow-segment-data)
+   when `TOMTOM_API_KEY` is set, else a modeled profile.
+4. `scripts/fetchMatrix.ts` routes every anchor pair over the network
+   (graph build, largest strongly connected component, Dijkstra; all in
+   `src/roadRouter.ts`, dependency-free) and writes one drive-time
+   matrix per slice. Traffic slices multiply edge times by interpolated
+   slowdowns.
+5. `scripts/embed.ts` turns a matrix into 2D positions (classical MDS,
+   SMACOF refinement, Procrustes alignment; `src/embedding.ts`).
+6. `scripts/buildViewer.ts` bundles every slice plus a table of example
+   routes into `docs/embedding.js` for the static site in `docs/`.
+
+Data sources are behind provider interfaces (`src/traffic`,
+`src/matrix`): each source is one file implementing a shared contract,
+selection is by key availability with an env override, and a new source
+(HERE, WSDOT, Google) is a file added to a registry. Shared
+rate-limiting lives in `src/lib/pool.ts`.
 
 ## Run it
 
 ```bash
-npm run pipeline   # grid -> matrix -> embedding (synthetic by default)
+npm run pipeline           # grid -> osm -> matrices -> embeddings -> viewer
 open docs/index.html
+
+# capture a new traffic slice (TomTom key from developer.tomtom.com):
+TOMTOM_API_KEY=... npm run traffic -- tuesday-morning "Tuesday morning"
+npm run pipeline           # picks up every captured slice
+
+npm run typecheck          # tsc over src/ and scripts/
 ```
 
-First results on the real road network (free-flow speed limits): the
-embedding fits with stress 0.058, and north-south trips compress to
-about 0.90x their geographic distance. The east-west stretch is modest
-at free-flow, which is the honest signal that traffic, not geometry, is
-what bends Seattle most.
+Scripts run through `npx tsx`; Node 23.6+ also runs them directly. The
+pipeline itself has no runtime dependencies.
+
+## What the data shows
+
+At posted speed limits, north-south freeway trips draw at about
+two-thirds of their geographic distance (Green Lake to Georgetown:
+0.62x) while east-west water crossings stretch to half again as far
+(Magnolia to Capitol Hill: 1.55x). Friday-evening traffic lengthens the
+average trip by roughly a fifth and cuts the freeway advantage, so the
+compressed routes give some distance back while the crossings stretch
+further. Fit quality (stress-1): 0.135 free-flow, 0.119 with traffic.
 
 ## Where this goes
 
-- Real drive times via the Distance Matrix API (key in `GOOGLE_MAPS_API_KEY`).
-- More modes: transit (GTFS via OpenTripPlanner is the interesting
-  one), bike, walk. One embedding per (mode, time-of-day).
-- Rush-hour slices: separate matrices at 8am / 1pm / 6pm.
-- A real basemap warped through the mesh (thin-plate spline over the
-  anchor displacement) instead of the bare mesh, so streets and
-  shorelines bend with the times.
+- More slices: weekday morning rush, midday, late night.
+- More modes: transit via GTFS is the interesting one, then bike.
+- A basemap warped through the mesh (thin-plate spline over anchor
+  displacement) so streets and shorelines bend with the times.
+- Measured drive times from a routing API as another matrix provider.
