@@ -99,6 +99,16 @@
     font: 600 14px/1.5 system-ui, sans-serif; color: var(--ink);
     margin: 8px 0 2px;
   }
+  .legend {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 4px 18px;
+    font: 12px/1.4 system-ui, sans-serif; color: var(--soft);
+    margin: 6px 0 0;
+  }
+  .legend .key { display: inline-flex; align-items: center; gap: 6px; }
+  .legend svg { display: block; }
+  .legend .bridge, .legend .anchor { visibility: visible; }
+  .legend .xrayonly { display: none; }
+  .legend.xray .xrayonly { display: inline-flex; }
   svg.map { width: 100%; height: auto; display: block; }
   .water { fill: var(--water); opacity: 0.7; stroke: none; }
   .street { fill: none; stroke: var(--road); stroke-linecap: round; }
@@ -186,6 +196,13 @@
     </div>
     <div class="chips" id="chips"></div>
     <svg id="map" class="map" viewBox="0 0 760 900"></svg>
+    <div class="legend" id="legend">
+      <span class="key"><svg width="26" height="10"><line x1="1" y1="5" x2="25" y2="5" class="route-line" /></svg> fastest drive</span>
+      <span class="key"><svg width="26" height="10"><line x1="1" y1="5" x2="25" y2="5" class="route-alt" /></svg> shortest by distance</span>
+      <span class="key"><svg width="14" height="14"><circle cx="7" cy="7" r="5" class="route-end" /></svg> start and end</span>
+      <span class="key xrayonly"><svg width="26" height="10"><line x1="1" y1="5" x2="25" y2="5" class="bridge" /></svg> bridge crossing</span>
+      <span class="key xrayonly"><svg width="14" height="14"><circle cx="7" cy="7" r="4" class="anchor" /></svg> sample point, sized by error</span>
+    </div>
     <p class="readout" id="readout"></p>
     <p class="caption" id="meta"></p>
   </div>
@@ -626,8 +643,10 @@
   }
 
   const xbtn = document.getElementById("xray");
+  const legend = document.getElementById("legend");
   xbtn.addEventListener("click", () => {
     svg.classList.toggle("xray");
+    legend.classList.toggle("xray");
     xbtn.classList.toggle("on");
   });
 
