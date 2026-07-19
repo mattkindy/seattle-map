@@ -477,6 +477,8 @@ export interface DijkstraOptions {
   prev?: Int32Array;
   /** Stop as soon as this node is settled. */
   target?: number;
+  /** Stop expanding once settled distance exceeds this bound. */
+  cutoff?: number;
 }
 
 export function dijkstra(
@@ -485,7 +487,7 @@ export function dijkstra(
   dist: Float64Array,
   opts: DijkstraOptions = {},
 ): Float64Array {
-  const { prev, target } = opts;
+  const { prev, target, cutoff } = opts;
   prev?.fill(-1);
   dist.fill(Infinity);
   dist[source] = 0;
@@ -543,6 +545,9 @@ export function dijkstra(
       continue;
     }
     if (u === target) {
+      break;
+    }
+    if (cutoff !== undefined && d > cutoff) {
       break;
     }
     for (let e = graph.offset[u]; e < graph.offset[u + 1]; e++) {
