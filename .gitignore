@@ -1,4 +1,5 @@
 node_modules/
-data/
+data/*
+!data/traffic-*.json
 .env
 .DS_Store

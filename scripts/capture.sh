@@ -28,7 +28,7 @@ fi
 npx -y tsx scripts/pipeline.ts >> data/capture.log 2>&1 || { log "pipeline FAILED"; exit 1; }
 npx -y tsx scripts/buildShareCard.ts >> data/capture.log 2>&1 || log "sharecard failed (non-fatal)"
 
-git add docs/
+git add docs/ "data/traffic-${slice}.json"
 if git commit -q -m "chore(data): $label traffic capture"; then
   if git push -q origin HEAD >> data/capture.log 2>&1; then
     log "pushed"

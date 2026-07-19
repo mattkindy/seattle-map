@@ -1,0 +1,51 @@
+# Scheduled traffic captures. Cron times are UTC: 15:33 Tue and 23:55
+# Fri are 8:33 am and 4:55 pm in Seattle during PDT (an hour earlier in
+# winter). Captures commit their slice file and the rebuilt site, so
+# GitHub Pages redeploys with the fresh data.
+name: capture-traffic
+on:
+  schedule:
+    - cron: "33 15 * * 2"
+    - cron: "55 23 * * 5"
+  workflow_dispatch:
+    inputs:
+      slice:
+        description: "slice id (e.g. midday)"
+        required: true
+      label:
+        description: "display label (e.g. Midday)"
+        required: true
+permissions:
+  contents: write
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install rsvg for the share card
+        run: sudo apt-get update -q && sudo apt-get install -y -q librsvg2-bin
+      - name: Resolve slice
+        id: slice
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "slice=${{ inputs.slice }}" >> "$GITHUB_OUTPUT"
+            echo "label=${{ inputs.label }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.schedule }}" = "33 15 * * 2" ]; then
+            echo "slice=tuesday-morning" >> "$GITHUB_OUTPUT"
+            echo "label=Tuesday morning" >> "$GITHUB_OUTPUT"
+          else
+            echo "slice=friday-evening" >> "$GITHUB_OUTPUT"
+            echo "label=Friday evening" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Capture and rebuild
+        env:
+          TOMTOM_API_KEY: ${{ secrets.TOMTOM_API_KEY }}
+        run: |
+          git config user.name "capture-bot"
+          git config user.email "github-actions@users.noreply.github.com"
+          mkdir -p data
+          ./scripts/capture.sh "${{ steps.slice.outputs.slice }}" ${{ steps.slice.outputs.label }}
+          cat data/capture.log
