@@ -19,10 +19,19 @@ import { main as buildViewer } from "./buildViewer.ts";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
-export async function main(): Promise<void> {
+// Base data everything else depends on. The grid generates twice on a
+// fresh environment: once to bootstrap (fetchOsm and fetchWater read
+// its bounds), then again once the real water geometry exists so the
+// anchor mask matches every other environment.
+export async function prepare(): Promise<void> {
   await generateGrid();
   await fetchOsm();
   await fetchWater();
+  await generateGrid();
+}
+
+export async function main(): Promise<void> {
+  await prepare();
 
   const captured = fs
     .readdirSync(path.join(root, "data"))
@@ -37,5 +46,9 @@ export async function main(): Promise<void> {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  await main();
+  if (process.argv.includes("--prepare")) {
+    await prepare();
+  } else {
+    await main();
+  }
 }

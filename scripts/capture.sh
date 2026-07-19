@@ -21,6 +21,12 @@ if [ -f .env ]; then
 fi
 
 log "capture start: slice=$slice"
+# Fresh environments (CI) need grid, osm, and water before a capture
+# can read anchor locations.
+if ! npx -y tsx scripts/pipeline.ts --prepare >> data/capture.log 2>&1; then
+  log "prepare FAILED"
+  exit 1
+fi
 if ! npx -y tsx scripts/fetchTraffic.ts "$slice" "$label" >> data/capture.log 2>&1; then
   log "capture FAILED"
   exit 1
