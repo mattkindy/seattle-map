@@ -125,6 +125,7 @@
     margin-top: 48px;
     padding-top: 14px;
   }
+  .methodology p { margin: 0 0 8px; }
 </style>
 <main>
   <p class="kicker">An Interactive Map</p>
@@ -229,24 +230,21 @@
   </p>
 
   <div class="methodology">
+    <p><strong>About the data</strong></p>
     <p>
-      <strong>About the data.</strong> The street map comes from
-      <a href="https://www.openstreetmap.org/about">OpenStreetMap</a>,
-      the volunteer-built world map; it supplies each road's shape, its
-      posted speed limit, and its one-way rules (&copy; OpenStreetMap
-      contributors). Both versions of the map route every pair of sample points over
-      that network, water, bridges, and one-way streets included. The
-      free-flow map drives each road at its posted limit. The Friday
-      evening map slows the same roads by live congestion from
-      <a href="https://developer.tomtom.com/traffic-api/documentation/tomtom-maps/traffic-flow/flow-segment-data">TomTom's
-      traffic flow service</a>, which measures current speeds from
-      vehicle probes; near each sample point it reports how much longer
-      the nearest road is taking than at free flow, and that slowdown
-      is spread onto nearby roads. The capture stamp is under the map.
-      Two limits worth knowing: speeds are sampled at points, so a
-      slowdown measured on a freeway can spread onto the streets beside
-      it, and points with no road nearby stay at free flow. Code and method:
-      <a href="https://github.com/mattkindy/seattle-map">github.com/mattkindy/seattle-map</a>.
+      Streets, speed limits, and one-way rules:
+      <a href="https://www.openstreetmap.org/about">OpenStreetMap</a>
+      (&copy; OpenStreetMap contributors).
+    </p>
+    <p>
+      Friday evening congestion:
+      <a href="https://developer.tomtom.com/traffic-api/documentation/tomtom-maps/traffic-flow/flow-segment-data">TomTom
+      traffic flow</a>, measured from vehicle probes. Capture stamp
+      under the map.
+    </p>
+    <p>
+      Method, in full: <a href="./math.html">how we made this map</a>.
+      Code: <a href="https://github.com/mattkindy/seattle-map">github.com/mattkindy/seattle-map</a>.
     </p>
   </div>
 </main>
