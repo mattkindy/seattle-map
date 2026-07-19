@@ -1,17 +1,23 @@
 // generateGrid.ts: lay a hex grid of anchor points over Seattle and
 // drop the ones that land in water. Output: data/grid.json.
 //
-// The water test is a coarse polygon model (Puget Sound to the west,
-// Lake Washington to the east, Ship Canal / Lake Union / Green Lake
-// inside), enough to keep anchors off the big water bodies. Routing
-// providers snap to the nearest road anyway, so precision here only
-// affects visual density, and a stray anchor on a shoreline is harmless.
+// The water test uses the real OSM water geometry once data/water.json
+// has been fetched (src/water.ts), falling back to the coarse
+// hand-drawn polygons below on a fresh checkout. Routing providers
+// snap to the nearest road anyway, so masking precision mostly affects
+// which parts of the city get sampled at all.
 
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import type { Anchor, Grid, MeshEdge } from "../src/types.ts";
+import {
+  buildWater,
+  pointInRing as ringContains,
+  validateWater,
+  type OverpassGeomElement,
+} from "../src/water.ts";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
@@ -183,7 +189,42 @@ function pointInRing(lng: number, lat: number, ring: Ring): boolean {
   return inside;
 }
 
+// Anchor masking prefers the real water geometry (data/water.json)
+// when it has been fetched; the hand-drawn polygons above are the
+// bootstrap fallback for a fresh checkout. The coarse polygons over-cut
+// in places (their Sound outline swallowed West Seattle's western
+// half), so the real geometry also samples the city more fairly.
+function realWaterRings(): Array<Array<[number, number]>> | null {
+  const waterPath = path.join(root, "data", "water.json");
+  if (!fs.existsSync(waterPath)) {
+    return null;
+  }
+  const rect = {
+    n: BOUNDS.north + 0.02,
+    s: BOUNDS.south - 0.02,
+    e: BOUNDS.east + 0.02,
+    w: BOUNDS.west - 0.02,
+  };
+  const json = JSON.parse(fs.readFileSync(waterPath, "utf8")) as {
+    elements: OverpassGeomElement[];
+  };
+  const rings = buildWater(json.elements, rect);
+  const failures = validateWater(rings);
+  if (failures.length > 0) {
+    console.log(
+      `grid: real water failed probes (${failures.join("; ")}); using hand-drawn mask`,
+    );
+    return null;
+  }
+  return rings;
+}
+
+const REAL_WATER = realWaterRings();
+
 function inWater(lng: number, lat: number): boolean {
+  if (REAL_WATER) {
+    return REAL_WATER.some((r) => ringContains(lat, lng, r));
+  }
   return WATER.some((w) => pointInRing(lng, lat, w.ring));
 }
 
