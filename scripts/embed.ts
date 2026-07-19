@@ -88,7 +88,30 @@ export async function main({
   if (mode === "transit") {
     W = D.map((row) => row.map((v) => 1 / Math.max(v, 60) ** 2));
   }
-  let X = classicalMds(D);
+  // Transit seeds from geography rather than classical MDS. A
+  // spine-shaped network leaves rotational freedom in regions that
+  // hang off one corridor, and the MDS seed hands SMACOF an already
+  // twisted layout it has no reason to untwist (the south end drew
+  // 175 degrees rotated; fixing it moved the twist north). Starting
+  // from geography, scaled into time units, SMACOF only displaces
+  // points as far as the times demand and never introduces a swivel.
+  let X: Point[];
+  if (mode === "transit") {
+    let sumD = 0;
+    let sumG = 0;
+    let cnt = 0;
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        sumD += D[i][j];
+        sumG += Math.hypot(G[i][0] - G[j][0], G[i][1] - G[j][1]);
+        cnt++;
+      }
+    }
+    const s = sumD / sumG;
+    X = G.map(([x, y]) => [x * s, y * s]);
+  } else {
+    X = classicalMds(D);
+  }
   X = smacof(X, D, 150, W);
   const { total, per } = stress(X, D);
   X = procrustes(X, G);
