@@ -62,25 +62,38 @@ export function classicalMds(D: number[][]): Point[] {
 }
 
 // SMACOF refinement: iteratively move each point toward positions that
-// reduce the gap to the target distances. Monotone in stress.
-export function smacof(X: Point[], D: number[][], iters: number): Point[] {
+// reduce the gap to the target distances. Monotone in stress. An
+// optional weight matrix makes the objective relative rather than
+// absolute: with w = 1/d^2, a 10-minute pair drawn 5 minutes off
+// matters as much as an 80-minute pair drawn 40 minutes off. Transit
+// needs this; its matrix spans a 10x dynamic range and the hour-long
+// walk-dominated pairs would otherwise twist local structure.
+export function smacof(
+  X: Point[],
+  D: number[][],
+  iters: number,
+  W?: number[][],
+): Point[] {
   const n = D.length;
   for (let it = 0; it < iters; it++) {
     const next: Point[] = X.map(() => [0, 0]);
     for (let i = 0; i < n; i++) {
+      let wsum = 0;
       for (let j = 0; j < n; j++) {
         if (i === j) {
           continue;
         }
+        const w = W ? W[i][j] : 1;
         const dx = X[i][0] - X[j][0];
         const dy = X[i][1] - X[j][1];
         const dist = Math.hypot(dx, dy) || 1e-9;
         const ratio = D[i][j] / dist;
-        next[i][0] += X[j][0] + ratio * dx;
-        next[i][1] += X[j][1] + ratio * dy;
+        next[i][0] += w * (X[j][0] + ratio * dx);
+        next[i][1] += w * (X[j][1] + ratio * dy);
+        wsum += w;
       }
-      next[i][0] /= n - 1;
-      next[i][1] /= n - 1;
+      next[i][0] /= wsum;
+      next[i][1] /= wsum;
     }
     for (let i = 0; i < n; i++) {
       X[i] = next[i];

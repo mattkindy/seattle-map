@@ -19,12 +19,16 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   applyTraffic,
   buildGraph,
+  dijkstra,
   dijkstraPath,
   largestScc,
   makeSnapper,
   type OsmElement,
   type RoadGraph,
 } from "../src/roadRouter.ts";
+import { walkGraph } from "../src/transit/access.ts";
+import { loadTimetable, type Timetable } from "../src/transit/gtfs.ts";
+import { raptor, type JourneyParent } from "../src/transit/raptor.ts";
 import { dataFileExists, readJsonGz } from "../src/lib/data.ts";
 import type { Reading } from "../src/traffic/index.ts";
 import {
@@ -34,7 +38,7 @@ import {
   type OverpassGeomElement,
   type Rect,
 } from "../src/water.ts";
-import { serviceDate, TRANSIT_SLICES } from "../src/transit/slices.ts";
+import { departSeconds, serviceDate, TRANSIT_SLICES } from "../src/transit/slices.ts";
 import {
   FREEFLOW,
   MODES,
@@ -439,6 +443,134 @@ export async function main(): Promise<void> {
     ? { ...baseGraph, weight: distanceWeights(baseGraph) }
     : null;
 
+  // Journey geometry for transit routes: RAPTOR with parent tracking,
+  // walked back from the best egress stop into ride and foot legs.
+  const INF = 0x7fffffff;
+  let transitCtx: {
+    tt: Timetable;
+    access: (a: { lat: number; lng: number }) => Array<[number, number]>;
+  } | null = null;
+  const gtfsDir = path.join(dataDir, "gtfs");
+  if (slicesOf("transit").length > 0 && baseGraph && fs.existsSync(gtfsDir)) {
+    const walk = walkGraph(baseGraph);
+    const { mask: wmask } = largestScc(walk);
+    const wsnap = makeSnapper(walk, wmask, true);
+    const tt = loadTimetable(gtfsDir, {
+      date: serviceDate(),
+      bounds: grid.bounds,
+    });
+    const stopsAtNode = new Map<number, Array<[number, number]>>();
+    for (let si = 0; si < tt.stopIds.length; si++) {
+      const node = wsnap(tt.stopLat[si], tt.stopLng[si]);
+      if (node < 0) {
+        continue;
+      }
+      const gapM = Math.hypot(
+        (tt.stopLat[si] - walk.lat[node]) * KM_PER_DEG_LAT * 1000,
+        (tt.stopLng[si] - walk.lng[node]) * kmPerDegLng * 1000,
+      );
+      if (gapM > 300) {
+        continue;
+      }
+      let list = stopsAtNode.get(node);
+      if (!list) {
+        stopsAtNode.set(node, (list = []));
+      }
+      list.push([si, gapM / 1.35]);
+    }
+    const dist = new Float64Array(walk.n);
+    transitCtx = {
+      tt,
+      access: (a) => {
+        const node = wsnap(a.lat, a.lng);
+        const out: Array<[number, number]> = [];
+        if (node >= 0) {
+          dijkstra(walk, node, dist, { cutoff: 900 });
+          for (const [nd, stops] of stopsAtNode) {
+            const d = dist[nd];
+            if (Number.isFinite(d) && d <= 900) {
+              for (const [si, gap] of stops) {
+                out.push([si, Math.round(d + gap)]);
+              }
+            }
+          }
+        }
+        return out;
+      },
+    };
+  }
+
+  function transitJourney(
+    tt: Timetable,
+    parents: Array<JourneyParent | undefined>,
+    arrival: Int32Array,
+    egress: Array<[number, number]>,
+    a: { lat: number; lng: number },
+    b: { lat: number; lng: number },
+  ): LatLng[] | null {
+    let bestStop = -1;
+    let bestT = Infinity;
+    for (const [si, sec] of egress) {
+      const t = arrival[si];
+      if (t < INF && t + sec < bestT) {
+        bestT = t + sec;
+        bestStop = si;
+      }
+    }
+    if (bestStop < 0) {
+      return null;
+    }
+    const legs: Array<JourneyParent & { to: number }> = [];
+    let cur = bestStop;
+    for (let g = 0; g < 100; g++) {
+      const par = parents[cur];
+      if (!par) {
+        break;
+      }
+      legs.push({ ...par, to: cur });
+      cur = par.from;
+    }
+    legs.reverse();
+    const rnd = (x: number) => Number(x.toFixed(5));
+    const pts: LatLng[] = [[rnd(a.lat), rnd(a.lng)]];
+    const push = (la: number, lo: number) => {
+      const q: LatLng = [rnd(la), rnd(lo)];
+      const last = pts[pts.length - 1];
+      if (last[0] !== q[0] || last[1] !== q[1]) {
+        pts.push(q);
+      }
+    };
+    push(tt.stopLat[cur], tt.stopLng[cur]);
+    for (const leg of legs) {
+      if (leg.kind === "ride" && leg.pattern !== undefined) {
+        const pat = tt.patterns[leg.pattern];
+        let posFrom = -1;
+        for (let i = 0; i < pat.stops.length; i++) {
+          if (pat.stops[i] === leg.from) {
+            posFrom = i;
+            break;
+          }
+        }
+        let posTo = -1;
+        for (let i = posFrom + 1; i < pat.stops.length; i++) {
+          if (pat.stops[i] === leg.to) {
+            posTo = i;
+            break;
+          }
+        }
+        if (posFrom >= 0 && posTo > posFrom) {
+          for (let i = posFrom; i <= posTo; i++) {
+            push(tt.stopLat[pat.stops[i]], tt.stopLng[pat.stops[i]]);
+          }
+          continue;
+        }
+      }
+      push(tt.stopLat[leg.to], tt.stopLng[leg.to]);
+    }
+    push(b.lat, b.lng);
+    return pts;
+  }
+
   function pathMeters(g: RoadGraph, nodes: number[]): number {
     let m = 0;
     for (let i = 0; i + 1 < nodes.length; i++) {
@@ -498,6 +630,32 @@ export async function main(): Promise<void> {
         (Math.hypot(qa.tx - qb.tx, qa.ty - qb.ty) / geoKm).toFixed(2),
       );
       if (mode !== "drive") {
+        if (mode === "transit" && transitCtx) {
+          const acc = transitCtx.access(pa);
+          const egr = transitCtx.access(pb);
+          const depart = departSeconds(
+            TRANSIT_SLICES.find((t) => t.id === slice)?.depart ?? "08:30",
+          );
+          if (acc.length > 0 && egr.length > 0) {
+            const parents = new Array<JourneyParent | undefined>(
+              transitCtx.tt.stopIds.length,
+            );
+            const arrival = raptor(transitCtx.tt, new Map(acc), depart, {
+              parents,
+            });
+            const pts = transitJourney(
+              transitCtx.tt,
+              parents,
+              arrival,
+              egr,
+              pa,
+              pb,
+            );
+            if (pts) {
+              routePath[slice] = pts;
+            }
+          }
+        }
         continue;
       }
       let pts: LatLng[] = [

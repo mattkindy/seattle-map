@@ -15,6 +15,16 @@ const INF = 0x7fffffff;
 
 export interface RaptorOptions {
   rounds?: number;
+  /** Caller-allocated (length = stop count). Filled with how each stop
+   * was last improved, for journey reconstruction. Access-seeded stops
+   * keep an undefined entry. */
+  parents?: Array<JourneyParent | undefined>;
+}
+
+export interface JourneyParent {
+  kind: "ride" | "foot";
+  from: number;
+  pattern?: number;
 }
 
 /**
@@ -31,6 +41,7 @@ export function raptor(
   opts: RaptorOptions = {},
 ): Int32Array {
   const rounds = opts.rounds ?? 4;
+  const parents = opts.parents;
   const n = tt.stopIds.length;
   const best = new Int32Array(n).fill(INF);
   const current = new Int32Array(n).fill(INF);
@@ -44,7 +55,7 @@ export function raptor(
       marked.add(stop);
     }
   }
-  applyTransfers(tt, best, current, marked);
+  applyTransfers(tt, best, current, marked, parents);
 
   for (let k = 0; k < rounds && marked.size > 0; k++) {
     // patterns touched by any marked stop
@@ -76,6 +87,7 @@ export function raptor(
       const stops = p.stops;
       const len = stops.length;
       let trip = -1; // current onboard trip index
+      let boardStop = -1;
       for (let pos = startPos; pos < len; pos++) {
         const stop = stops[pos];
         // improve arrival with the onboard trip
@@ -85,6 +97,9 @@ export function raptor(
             best[stop] = arr;
             current[stop] = arr;
             marked.add(stop);
+            if (parents) {
+              parents[stop] = { kind: "ride", from: boardStop, pattern: pi };
+            }
           }
         }
         // catch an earlier trip at this stop? board time comes from the
@@ -107,11 +122,12 @@ export function raptor(
           }
           if (found >= 0 && (trip < 0 || found < trip)) {
             trip = found;
+            boardStop = stop;
           }
         }
       }
     }
-    applyTransfers(tt, best, current, marked);
+    applyTransfers(tt, best, current, marked, parents);
   }
   return best;
 }
@@ -121,6 +137,7 @@ function applyTransfers(
   best: Int32Array,
   current: Int32Array,
   marked: Set<number>,
+  parents?: Array<JourneyParent | undefined>,
 ): void {
   const added: number[] = [];
   for (const stop of marked) {
@@ -130,6 +147,9 @@ function applyTransfers(
         best[to] = t;
         current[to] = t;
         added.push(to);
+        if (parents) {
+          parents[to] = { kind: "foot", from: stop };
+        }
       }
     }
   }

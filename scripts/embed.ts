@@ -82,8 +82,14 @@ export async function main({
   const kmPerDegLng = 111.32 * Math.cos((47.61 * Math.PI) / 180);
   const G: Point[] = anchors.map((a) => [a.lng * kmPerDegLng, a.lat * 111.32]);
 
+  // Transit optimizes relative error (see smacof); driving keeps the
+  // absolute objective that produced its established shapes.
+  let W: number[][] | undefined;
+  if (mode === "transit") {
+    W = D.map((row) => row.map((v) => 1 / Math.max(v, 60) ** 2));
+  }
   let X = classicalMds(D);
-  X = smacof(X, D, 150);
+  X = smacof(X, D, 150, W);
   const { total, per } = stress(X, D);
   X = procrustes(X, G);
 

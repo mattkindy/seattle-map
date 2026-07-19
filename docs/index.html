@@ -323,7 +323,7 @@
     </p>
   </div>
 </main>
-<script src="./embedding.js?v=0e99f7ab"></script>
+<script src="./embedding.js?v=50aaafca"></script>
 <script type="module">
   const svg = document.getElementById("map");
   const NS = "http://www.w3.org/2000/svg";
@@ -542,7 +542,7 @@
     const isDrive = slices[active].mode === "drive";
     const av = isDrive ? altVerts[activeRoute] : [];
     routeAlt.setAttribute("points", av.length ? av.map(lerp).join(" ") : "");
-    const rv = isDrive ? routeVerts[activeRoute][slices[active].id] || [] : [];
+    const rv = routeVerts[activeRoute][slices[active].id] || [];
     if (rv.length) {
       routeLine.setAttribute("points", rv.map(lerp).join(" "));
       [rv[0], rv[rv.length - 1]].forEach((v, k) => {
