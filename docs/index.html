@@ -113,6 +113,7 @@
   .bridge { stroke: var(--hot); stroke-width: 1.5; opacity: 0.9; fill: none; visibility: hidden; }
   svg.xray .anchor, svg.xray .edge, svg.xray .bridge { visibility: visible; }
   .route-line { stroke: var(--accent); stroke-width: 2.5; opacity: 0.95; fill: none; }
+  .route-alt { stroke: var(--soft); stroke-width: 1.6; stroke-dasharray: 5 4; opacity: 0.75; fill: none; }
   .route-end { fill: none; stroke: var(--accent); stroke-width: 2.5; }
   .label { font: 11px system-ui, sans-serif; fill: var(--ink); opacity: 0.95;
            paint-order: stroke; stroke: var(--bg); stroke-width: 3; }
@@ -191,12 +192,14 @@
 
   <h2>Five drives</h2>
   <p>
-    Ballard and the University District are three miles apart. On open
-    roads the drive takes about nine minutes; on a Friday evening,
-    eleven. Because the trip has to cross the Ship Canal, this map
-    draws the two neighborhoods 38 percent farther apart than geography
-    would. Each row below reads the same way, and tapping one traces
-    its route on the map.
+    Ballard and Capitol Hill are four and a half miles apart, and the
+    drive takes about 13 minutes with no traffic. Northgate and Pike
+    Place are six and a half miles apart, half again as far, yet the
+    drive takes nine. So this map draws the first pair 25 percent
+    farther apart than geography would, and the second pair 39 percent
+    closer. Each row below reads the same way. Tapping one traces its
+    fastest route on the map as a solid line, with the shortest route
+    by distance dashed beside it; the shortest is rarely the fastest.
   </p>
   <table class="routes" id="routes"></table>
   <p class="caption">
@@ -272,7 +275,7 @@
     </p>
   </div>
 </main>
-<script src="./embedding.js?v=baae5ee8"></script>
+<script src="./embedding.js?v=6fcf2449"></script>
 <script type="module">
   const svg = document.getElementById("map");
   const NS = "http://www.w3.org/2000/svg";
@@ -367,6 +370,10 @@
     const x = lo * kmLng;
     const y = la * 111.32;
     const near = nearestAnchors(x, y, 6);
+    if (near.length === 0) {
+      const fixed = px([x, y]);
+      return { g: fixed, w: slices.map(() => fixed) };
+    }
     const acc = slices.map(() => [0, 0]);
     let ws = 0;
     for (const [d2, i] of near) {
@@ -407,6 +414,9 @@
     });
     return bySlice;
   });
+  const altVerts = routes.map((r) =>
+    r.alt ? r.alt.path.map(([la, lo]) => projectVertex(la, lo)) : [],
+  );
 
   const edgeEls = edges.map(([, , kind]) => {
     const el = document.createElementNS(NS, "line");
@@ -414,6 +424,9 @@
     svg.appendChild(el);
     return el;
   });
+  const routeAlt = document.createElementNS(NS, "polyline");
+  routeAlt.setAttribute("class", "route-alt");
+  svg.appendChild(routeAlt);
   const routeLine = document.createElementNS(NS, "polyline");
   routeLine.setAttribute("class", "route-line");
   svg.appendChild(routeLine);
@@ -474,6 +487,8 @@
       el.setAttribute("cy", pos[i][1]);
       el.setAttribute("r", 1.5 + t * Math.min(stressOf[i].stress / 120, 3));
     });
+    const av = altVerts[activeRoute];
+    routeAlt.setAttribute("points", av.length ? av.map(lerp).join(" ") : "");
     const rv = routeVerts[activeRoute][slices[active].id];
     if (rv.length) {
       routeLine.setAttribute("points", rv.map(lerp).join(" "));
@@ -517,11 +532,11 @@
   const meta = document.getElementById("meta");
   function renderMeta() {
     meta.textContent =
-      "Streets and shorelines bend as the city stretches. The blue " +
-      "line traces the selected drive's fastest route. X-ray reveals " +
-      "the sampling grid underneath: dots grow where the drawn " +
-      "distances least match the driving times. " +
-      captureText(slices[active]);
+      "Streets and shorelines bend as the city stretches. The solid " +
+      "blue line is the selected drive's fastest route; the dashed " +
+      "line is the shortest one by distance. X-ray reveals the " +
+      "sampling grid underneath: dots grow where the drawn distances " +
+      "least match the driving times. " + captureText(slices[active]);
   }
 
   const viewsEl = document.getElementById("views");
@@ -547,8 +562,17 @@
     const cond = sl.capturedAt
       ? r.minutes[sl.id] + " min in " + sl.label.toLowerCase() + " traffic"
       : r.minutes[sl.id] + " min at free flow";
-    readout.textContent =
-      r.name + ": " + r.miles + " miles, " + cond + ", " + drawn + ".";
+    const fastMi = r.fastMiles && r.fastMiles[sl.id];
+    let text =
+      r.name + ": fastest route " + cond +
+      (fastMi ? " over " + fastMi + " miles" : "") + ". ";
+    if (r.alt) {
+      text +=
+        "The shortest route, " + r.alt.miles + " miles, takes " +
+        r.alt.minutes[sl.id] + " min. ";
+    }
+    text += "Drawn " + drawn.replace("drawn ", "") + ".";
+    readout.textContent = text;
   }
 
   const chipsEl = document.getElementById("chips");

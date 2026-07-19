@@ -12,6 +12,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { FREEFLOW } from "../src/types.ts";
 import { main as generateGrid } from "./generateGrid.ts";
 import { main as fetchOsm } from "./fetchOsm.ts";
+import { main as fetchWater } from "./fetchWater.ts";
 import { main as fetchMatrix } from "./fetchMatrix.ts";
 import { main as embed } from "./embed.ts";
 import { main as buildViewer } from "./buildViewer.ts";
@@ -21,6 +22,7 @@ const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 export async function main(): Promise<void> {
   await generateGrid();
   await fetchOsm();
+  await fetchWater();
 
   const captured = fs
     .readdirSync(path.join(root, "data"))
