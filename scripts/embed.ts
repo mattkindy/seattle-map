@@ -15,16 +15,25 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { classicalMds, procrustes, smacof, stress, type Point } from "../src/embedding.ts";
-import { FREEFLOW, type EmbeddingFile, type Grid, type MatrixFile } from "../src/types.ts";
+import {
+  FREEFLOW,
+  type EmbeddingFile,
+  type Grid,
+  type MatrixFile,
+  type Mode,
+} from "../src/types.ts";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
-export async function main({ slice = FREEFLOW } = {}): Promise<void> {
+export async function main({
+  mode = "drive" as Mode,
+  slice = FREEFLOW,
+} = {}): Promise<void> {
   const grid = JSON.parse(
     fs.readFileSync(path.join(root, "data", "grid.json"), "utf8"),
   ) as Grid;
   const matrix = JSON.parse(
-    fs.readFileSync(path.join(root, "data", `matrix-${slice}.json`), "utf8"),
+    fs.readFileSync(path.join(root, "data", `matrix-${mode}-${slice}.json`), "utf8"),
   ) as MatrixFile;
   const { seconds, provider, traffic } = matrix;
   const anchors = grid.anchors;
@@ -80,6 +89,7 @@ export async function main({ slice = FREEFLOW } = {}): Promise<void> {
 
   const out: EmbeddingFile = {
     provider,
+    mode,
     slice,
     traffic,
     stress: Number(total.toFixed(4)),
@@ -94,14 +104,17 @@ export async function main({ slice = FREEFLOW } = {}): Promise<void> {
     })),
   };
   fs.writeFileSync(
-    path.join(root, "data", `embedding-${slice}.json`),
+    path.join(root, "data", `embedding-${mode}-${slice}.json`),
     JSON.stringify(out, null, 1),
   );
   console.log(
-    `embedding: stress ${out.stress} (${provider} matrix, slice ${slice}) -> data/embedding-${slice}.json`,
+    `embedding: stress ${out.stress} (${provider} ${mode} matrix, slice ${slice}) -> data/embedding-${mode}-${slice}.json`,
   );
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  await main({ slice: process.argv[2] ?? FREEFLOW });
+  await main({
+    mode: (process.argv[2] as Mode) ?? "drive",
+    slice: process.argv[3] ?? FREEFLOW,
+  });
 }

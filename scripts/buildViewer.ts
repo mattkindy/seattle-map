@@ -34,11 +34,14 @@ import {
   type OverpassGeomElement,
   type Rect,
 } from "../src/water.ts";
+import { serviceDate, TRANSIT_SLICES } from "../src/transit/slices.ts";
 import {
   FREEFLOW,
+  MODES,
   type EmbeddingFile,
   type Grid,
   type MatrixFile,
+  type Mode,
   type TrafficFile,
 } from "../src/types.ts";
 
@@ -245,18 +248,30 @@ export async function main(): Promise<void> {
     fs.readFileSync(path.join(dataDir, "grid.json"), "utf8"),
   ) as Grid;
 
-  const sliceIds = fs
+  const found = fs
     .readdirSync(dataDir)
-    .filter((f) => f.startsWith("embedding-") && f.endsWith(".json"))
-    .map((f) => f.slice("embedding-".length, -".json".length));
-  // Freeflow baseline first, then captures.
-  const ordered = [
-    ...sliceIds.filter((s) => s === FREEFLOW),
-    ...sliceIds.filter((s) => s !== FREEFLOW).sort(),
-  ];
-  if (!ordered.includes(FREEFLOW)) {
+    .map((f) => /^embedding-(drive|transit)-(.+)\.json$/.exec(f))
+    .filter((m): m is RegExpExecArray => m !== null)
+    .map((m) => ({ mode: m[1] as Mode, slice: m[2] }));
+  const slicesOf = (mode: Mode): string[] => {
+    const ids = found.filter((f) => f.mode === mode).map((f) => f.slice);
+    if (mode === "drive") {
+      // Freeflow baseline first, then captures.
+      return [
+        ...ids.filter((s) => s === FREEFLOW),
+        ...ids.filter((s) => s !== FREEFLOW).sort(),
+      ];
+    }
+    return TRANSIT_SLICES.map((t) => t.id).filter((id) => ids.includes(id));
+  };
+  if (!slicesOf("drive").includes(FREEFLOW)) {
     throw new Error("no freeflow embedding; run the pipeline first");
   }
+  // [mode, slice] pairs in display order, drive first.
+  const ordered: Array<[Mode, string]> = MODES.flatMap((mode) =>
+    slicesOf(mode).map((slice): [Mode, string] => [mode, slice]),
+  );
+  const keyOf = (mode: Mode, slice: string) => `${mode}:${slice}`;
 
   const nearestAnchor = (lat: number, lng: number): number => {
     let best = 0;
@@ -272,13 +287,29 @@ export async function main(): Promise<void> {
   };
 
   const readingsOf = new Map<string, Reading[]>();
-  const slices = ordered.map((slice) => {
+  // Note under the map for a transit slice. The service date recomputes
+  // here; it matches the matrix build unless the two straddle a
+  // Wednesday.
+  const transitNote = (slice: string): string => {
+    const t = TRANSIT_SLICES.find((x) => x.id === slice);
+    const d = serviceDate();
+    const pretty = `${d.slice(4, 6)}/${d.slice(6, 8)}`;
+    return `Bus and rail timetables for ${pretty}, leaving at ${t?.depart ?? "?"} am. Walking included.`;
+  };
+  const loadSlice = (mode: Mode, slice: string) => {
     const emb = JSON.parse(
-      fs.readFileSync(path.join(dataDir, `embedding-${slice}.json`), "utf8"),
+      fs.readFileSync(
+        path.join(dataDir, `embedding-${mode}-${slice}.json`),
+        "utf8",
+      ),
     ) as EmbeddingFile;
     let label = "Free flow";
     let capturedAt: string | null = null;
-    if (slice !== FREEFLOW) {
+    let note: string | null = null;
+    if (mode === "transit") {
+      label = TRANSIT_SLICES.find((t) => t.id === slice)?.label ?? slice;
+      note = transitNote(slice);
+    } else if (slice !== FREEFLOW) {
       const traffic = JSON.parse(
         fs.readFileSync(path.join(dataDir, `traffic-${slice}.json`), "utf8"),
       ) as TrafficFile;
@@ -290,18 +321,30 @@ export async function main(): Promise<void> {
       id: slice,
       label,
       capturedAt,
+      note,
       traffic: emb.traffic,
       stress: emb.stress,
       anchors: emb.anchors,
     };
-  });
+  };
+  const modes = MODES.filter((m) => slicesOf(m).length > 0).map((mode) => ({
+    id: mode,
+    label: mode === "drive" ? "Driving" : "Transit",
+    slices: slicesOf(mode).map((slice) => loadSlice(mode, slice)),
+  }));
+  const sliceData = new Map(
+    modes.flatMap((m) => m.slices.map((s) => [keyOf(m.id as Mode, s.id), s])),
+  );
 
   const matrices = new Map(
-    ordered.map((slice) => [
-      slice,
+    ordered.map(([mode, slice]) => [
+      keyOf(mode, slice),
       (
         JSON.parse(
-          fs.readFileSync(path.join(dataDir, `matrix-${slice}.json`), "utf8"),
+          fs.readFileSync(
+            path.join(dataDir, `matrix-${mode}-${slice}.json`),
+            "utf8",
+          ),
         ) as MatrixFile
       ).seconds,
     ]),
@@ -320,7 +363,7 @@ export async function main(): Promise<void> {
     const { mask } = largestScc(base);
     snap = makeSnapper(base, mask, true);
     graphs = new Map(
-      ordered.map((slice) => {
+      slicesOf("drive").map((slice) => {
         const readings = readingsOf.get(slice);
         return [slice, readings ? applyTraffic(base, readings) : base];
       }),
@@ -440,20 +483,23 @@ export async function main(): Promise<void> {
     const factor: Record<string, number> = {};
     const routePath: Record<string, LatLng[]> = {};
     const fastMiles: Record<string, number> = {};
-    for (const slice of ordered) {
-      const seconds = matrices.get(slice) as (number | null)[][];
+    for (const [mode, slice] of ordered) {
+      const key = keyOf(mode, slice);
+      const seconds = matrices.get(key) as (number | null)[][];
       const there = seconds[ai][bi];
       const back = seconds[bi][ai];
       const s =
         there != null && back != null ? (there + back) / 2 : (there ?? back);
-      minutes[slice] = s == null ? NaN : Number((s / 60).toFixed(1));
-      const anchors = (slices.find((x) => x.id === slice) as (typeof slices)[0])
-        .anchors;
+      minutes[key] = s == null ? NaN : Number((s / 60).toFixed(1));
+      const anchors = sliceData.get(key)!.anchors;
       const qa = anchors[ai];
       const qb = anchors[bi];
-      factor[slice] = Number(
+      factor[key] = Number(
         (Math.hypot(qa.tx - qb.tx, qa.ty - qb.ty) / geoKm).toFixed(2),
       );
+      if (mode !== "drive") {
+        continue;
+      }
       let pts: LatLng[] = [
         [pa.lat, pa.lng],
         [pb.lat, pb.lng],
@@ -490,7 +536,7 @@ export async function main(): Promise<void> {
       );
       if (nodes.length > 0) {
         const altMinutes: Record<string, number> = {};
-        for (const slice of ordered) {
+        for (const slice of slicesOf("drive")) {
           const g = graphs?.get(slice) as RoadGraph;
           altMinutes[slice] = Number((pathSeconds(g, nodes) / 60).toFixed(1));
         }
@@ -515,7 +561,7 @@ export async function main(): Promise<void> {
     };
   });
 
-  const payload = { edges: grid.edges, slices, routes, basemap };
+  const payload = { edges: grid.edges, modes, routes, basemap };
   const body = `window.EMBEDDING = ${JSON.stringify(payload)};\n`;
   fs.writeFileSync(path.join(root, "docs", "embedding.js"), body);
 
@@ -533,7 +579,7 @@ export async function main(): Promise<void> {
   }
 
   console.log(
-    `viewer: ${slices.length} slices (${ordered.join(", ")}), ` +
+    `viewer: ${modes.map((m) => `${m.id}[${m.slices.map((s) => s.id).join(",")}]`).join(" ")} ` +
       `${routes.length} routes -> docs/embedding.js (v=${hash})`,
   );
 }

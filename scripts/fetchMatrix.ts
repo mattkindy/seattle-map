@@ -15,19 +15,28 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { selectProvider } from "../src/lib/providers.ts";
-import { MATRIX_PROVIDERS } from "../src/matrix/index.ts";
-import { FREEFLOW, type Grid, type MatrixFile, type TrafficFile } from "../src/types.ts";
+import { providersFor } from "../src/matrix/index.ts";
+import {
+  FREEFLOW,
+  type Grid,
+  type MatrixFile,
+  type Mode,
+  type TrafficFile,
+} from "../src/types.ts";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 
-export async function main({ slice = FREEFLOW } = {}): Promise<void> {
+export async function main({
+  mode = "drive" as Mode,
+  slice = FREEFLOW,
+} = {}): Promise<void> {
   const grid = JSON.parse(
     fs.readFileSync(path.join(root, "data", "grid.json"), "utf8"),
   ) as Grid;
   const anchors = grid.anchors;
 
   let traffic: { provider: string; readings: TrafficFile["readings"] } | null = null;
-  if (slice !== FREEFLOW) {
+  if (mode === "drive" && slice !== FREEFLOW) {
     const trafficPath = path.join(root, "data", `traffic-${slice}.json`);
     if (!fs.existsSync(trafficPath)) {
       throw new Error(
@@ -45,11 +54,15 @@ export async function main({ slice = FREEFLOW } = {}): Promise<void> {
     slice,
     traffic,
   };
-  const provider = selectProvider(MATRIX_PROVIDERS, ctx, process.env.MATRIX_PROVIDER);
+  const provider = selectProvider(
+    providersFor(mode),
+    ctx,
+    mode === "drive" ? process.env.MATRIX_PROVIDER : undefined,
+  );
   const seconds = await provider.build(anchors, ctx);
 
   const out: MatrixFile = {
-    mode: "drive",
+    mode,
     provider: provider.name,
     slice,
     traffic: traffic?.provider ?? null,
@@ -57,15 +70,18 @@ export async function main({ slice = FREEFLOW } = {}): Promise<void> {
     seconds,
   };
   fs.writeFileSync(
-    path.join(root, "data", `matrix-${slice}.json`),
+    path.join(root, "data", `matrix-${mode}-${slice}.json`),
     JSON.stringify(out),
   );
   console.log(
-    `matrix: ${anchors.length}x${anchors.length} ${provider.name} drive matrix, ` +
-      `slice ${slice}${traffic ? ` (${traffic.provider} traffic)` : ""} -> data/matrix-${slice}.json`,
+    `matrix: ${anchors.length}x${anchors.length} ${provider.name} ${mode} matrix, ` +
+      `slice ${slice}${traffic ? ` (${traffic.provider} traffic)` : ""} -> data/matrix-${mode}-${slice}.json`,
   );
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  await main({ slice: process.argv[2] ?? FREEFLOW });
+  await main({
+    mode: (process.argv[2] as Mode) ?? "drive",
+    slice: process.argv[3] ?? FREEFLOW,
+  });
 }

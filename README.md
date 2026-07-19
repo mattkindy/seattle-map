@@ -3,11 +3,13 @@
 Live map: https://mattkindy.github.io/seattle-map/ (with an
 [illustrated math page](https://mattkindy.github.io/seattle-map/math.html)).
 
-A time-space cartogram of Seattle: a map where the distance between two
-points reflects how long it takes to drive between them, not how far
-apart they sit. The map has two views, free-flow speed limits and
-measured Friday-evening traffic, and a slider that morphs the city
-between geography and drive-time shape.
+A time-space cartogram of Seattle: a map where the distance between
+two points reflects how long it takes to travel between them, not how
+far apart they sit. Three maps in one: driving at the speed limits,
+driving in measured Friday-evening traffic, and transit on a weekday
+morning (GTFS timetables, RAPTOR routing, walking included). A slider
+morphs the city between geography and travel-time shape. TRANSIT.md
+records the transit design.
 
 The idea came from a stay on Capitol Hill. Visiting friends in Ballard
 took far longer than the map distance suggested, while Phinney Ridge to
@@ -78,6 +80,6 @@ further. Fit quality (stress-1): 0.124 free-flow, 0.111 with traffic.
 
 ## Where this goes
 
-- More slices: weekday morning rush, midday, late night.
-- More modes: transit via GTFS is the interesting one, then bike.
+- More slices: midday, late night, transit at other hours.
+- Bike mode (needs elevation, its own project).
 - Measured drive times from a routing API as another matrix provider.

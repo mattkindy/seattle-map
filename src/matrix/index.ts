@@ -14,6 +14,7 @@ import type { Reading } from "../traffic/index.ts";
 import { google } from "./google.ts";
 import { road } from "./road.ts";
 import { synthetic } from "./synthetic.ts";
+import { transit } from "./transit.ts";
 
 export interface MatrixCtx extends ProviderCtx {
   slice: string;
@@ -27,8 +28,14 @@ export interface MatrixProvider extends Provider {
 // Preference order: paid measured source, then routing over fetched OSM
 // data, then the synthetic model (always available, keeps the pipeline
 // runnable with zero setup).
-export const MATRIX_PROVIDERS: readonly MatrixProvider[] = [
+export const DRIVE_PROVIDERS: readonly MatrixProvider[] = [
   google,
   road,
   synthetic,
 ];
+
+export const TRANSIT_PROVIDERS: readonly MatrixProvider[] = [transit];
+
+export function providersFor(mode: string): readonly MatrixProvider[] {
+  return mode === "transit" ? TRANSIT_PROVIDERS : DRIVE_PROVIDERS;
+}

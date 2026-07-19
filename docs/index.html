@@ -182,7 +182,7 @@
     the driver's seat. The bridges stretch, and the far side of the
     water gets farther.
   </p>
-  <p class="byline">Two ways to measure the drive: posted speed limits on an open road, and live traffic captured on a Friday evening. See the note below.</p>
+  <p class="byline">Three ways to measure the trip: by car at the speed limits, by car in Friday traffic, and by bus and rail on a weekday morning. See the note below.</p>
 
   <p>
     Ballard and Magnolia face each other across Salmon Bay, close
@@ -193,14 +193,16 @@
     neighborhoods are nowhere near each other.
   </p>
   <p>
-    The map below redraws the city using driving time as distance.
+    The map below redraws the city using travel time as distance.
     Drag the slider and watch Seattle move from the map you know to
-    the shape of its drives. The buttons switch between an empty-roads
-    city and the same city at Friday rush.
+    the shape of its trips. The buttons pick how you travel: by car on
+    empty roads, in Friday traffic, or by transit on a weekday
+    morning.
   </p>
 
   <div class="mapwrap">
     <div class="controls">
+      <div class="views" id="modes"></div>
       <div class="views" id="views"></div>
       <span>the map</span>
       <input id="morph" type="range" min="0" max="1" step="0.01" value="0" />
@@ -227,15 +229,17 @@
     Place are two miles farther apart, yet that drive takes nine. So
     the map draws Ballard and Capitol Hill 21 percent farther apart
     than the miles say, and Northgate and Pike Place 40 percent
-    closer. Every row in the table works like that. Tap a row to see
-    the drive on the map: the solid line is the fastest way and the
-    dashed line is the shortest way. They are rarely the same road.
+    closer. Every row in the table works like that, and the transit
+    column is the same trip by bus and rail, walking included. Tap a
+    row to see the drive on the map: the solid line is the fastest way
+    and the dashed line is the shortest way. They are rarely the same
+    road.
   </p>
   <table class="routes" id="routes"></table>
   <p class="caption">
     Minutes average the two directions of each trip. Free flow means
-    every road at its speed limit. Friday evening adds the measured
-    traffic.
+    every road at its speed limit; Friday evening adds the measured
+    traffic; transit rides the weekday-morning timetable.
   </p>
 
   <h2>What to look for</h2>
@@ -256,6 +260,15 @@
     hardest, so the north-south shortcuts lose some of their edge,
     and downtown pushes everything around it farther away. The two
     maps are the same city at two different hours.
+  </p>
+  <p>
+    Then switch to transit. The city changes shape a third time, and
+    more drastically. Light rail pulls Northgate, downtown, and
+    Columbia City into a tight line, the way I-5 never quite manages
+    by car. Away from the rail and the frequent buses, neighborhoods
+    drift toward the edges: Magnolia to Capitol Hill is a 12-minute
+    drive and a 47-minute ride. The transit map also fits a flat page
+    worse than the driving maps, so expect bigger dots in X-ray.
   </p>
   <p>
     The X-ray button shows what the map is built from: a honeycomb of
@@ -298,18 +311,29 @@
       under the map.
     </p>
     <p>
+      Transit timetables:
+      <a href="https://kingcounty.gov/en/dept/metro/rider-tools/mobile-and-web-apps">King
+      County Metro</a> and
+      <a href="https://www.soundtransit.org/help-contacts/business-information/open-transit-data-otd">Sound
+      Transit</a> GTFS feeds, routed with walking included.
+    </p>
+    <p>
       The full method: <a href="./math.html">how we made this map</a>.
       Code: <a href="https://github.com/mattkindy/seattle-map">github.com/mattkindy/seattle-map</a>.
     </p>
   </div>
 </main>
-<script src="./embedding.js?v=7c72aff8"></script>
+<script src="./embedding.js?v=0e99f7ab"></script>
 <script type="module">
   const svg = document.getElementById("map");
   const NS = "http://www.w3.org/2000/svg";
-  const { slices, edges, routes, basemap } = window.EMBEDDING;
+  const { modes, edges, routes, basemap } = window.EMBEDDING;
+  const slices = modes.flatMap((m) =>
+    m.slices.map((s) => ({ ...s, mode: m.id, key: m.id + ":" + s.id })),
+  );
 
-  let active = 0;
+  let activeMode = 0;
+  let active = 0; // flat index into slices
   let activeRoute = 0;
 
   const kmLng = 111.32 * Math.cos((47.61 * Math.PI) / 180);
@@ -515,9 +539,10 @@
       el.setAttribute("cy", pos[i][1]);
       el.setAttribute("r", 1.5 + t * Math.min(stressOf[i].stress / 120, 3));
     });
-    const av = altVerts[activeRoute];
+    const isDrive = slices[active].mode === "drive";
+    const av = isDrive ? altVerts[activeRoute] : [];
     routeAlt.setAttribute("points", av.length ? av.map(lerp).join(" ") : "");
-    const rv = routeVerts[activeRoute][slices[active].id];
+    const rv = isDrive ? routeVerts[activeRoute][slices[active].id] || [] : [];
     if (rv.length) {
       routeLine.setAttribute("points", rv.map(lerp).join(" "));
       [rv[0], rv[rv.length - 1]].forEach((v, k) => {
@@ -525,6 +550,13 @@
         const w = v.w[active];
         endEls[k].setAttribute("cx", g[0] + (w[0] - g[0]) * t);
         endEls[k].setAttribute("cy", g[1] + (w[1] - g[1]) * t);
+      });
+    } else {
+      const r2 = routes[activeRoute];
+      routeLine.setAttribute("points", "");
+      [r2.ai, r2.bi].forEach((idx, k) => {
+        endEls[k].setAttribute("cx", pos[idx][0]);
+        endEls[k].setAttribute("cy", pos[idx][1]);
       });
     }
     landmarkRefs.forEach(({ g, refs }, k) => {
@@ -547,6 +579,7 @@
   }
 
   function captureText(slice) {
+    if (slice.note) return slice.note;
     if (!slice.capturedAt) return "Roads at their posted limits, no traffic.";
     const d = new Date(slice.capturedAt);
     const fmt = new Intl.DateTimeFormat("en-US", {
@@ -565,39 +598,68 @@
       "the driving times. " + captureText(slices[active]);
   }
 
-  const viewsEl = document.getElementById("views");
-  const viewBtns = slices.map((slice, i) => {
+  const modesEl = document.getElementById("modes");
+  const modeBtns = modes.map((m, mi) => {
     const b = document.createElement("button");
-    b.textContent = slice.label;
-    b.addEventListener("click", () => setView(i));
-    viewsEl.appendChild(b);
+    b.textContent = m.label;
+    b.addEventListener("click", () => setMode(mi));
+    modesEl.appendChild(b);
     return b;
   });
+  const viewsEl = document.getElementById("views");
+  let viewBtns = [];
+  function buildSlicePills() {
+    viewsEl.innerHTML = "";
+    viewBtns = modes[activeMode].slices.map((slice) => {
+      const flat = slices.findIndex(
+        (s) => s.mode === modes[activeMode].id && s.id === slice.id,
+      );
+      const b = document.createElement("button");
+      b.textContent = slice.label;
+      b.addEventListener("click", () => setView(flat));
+      viewsEl.appendChild(b);
+      return b;
+    });
+  }
+  function setMode(mi) {
+    activeMode = mi;
+    modeBtns.forEach((b, k) => b.classList.toggle("on", k === mi));
+    buildSlicePills();
+    const first = slices.findIndex((s) => s.mode === modes[mi].id);
+    setView(first);
+  }
 
   const readout = document.getElementById("readout");
   function renderReadout() {
     const r = routes[activeRoute];
     const sl = slices[active];
-    const f = r.factor[sl.id];
+    const f = r.factor[sl.key];
     const drawn =
       f < 0.97
-        ? "drawn " + Math.round((1 - f) * 100) + "% closer than the miles say"
+        ? Math.round((1 - f) * 100) + "% closer than the miles say"
         : f > 1.03
-          ? "drawn " + Math.round((f - 1) * 100) + "% farther apart than the miles say"
-          : "drawn true to the miles";
-    const cond = sl.capturedAt
-      ? r.minutes[sl.id] + " min in " + sl.label.toLowerCase() + " traffic"
-      : r.minutes[sl.id] + " min at free flow";
-    const fastMi = r.fastMiles && r.fastMiles[sl.id];
-    let text =
-      r.name + ": fastest route " + cond +
-      (fastMi ? " over " + fastMi + " miles" : "") + ". ";
-    if (r.alt) {
-      text +=
-        "The shortest route, " + r.alt.miles + " miles, takes " +
-        r.alt.minutes[sl.id] + " min. ";
+          ? Math.round((f - 1) * 100) + "% farther apart than the miles say"
+          : "true to the miles";
+    let text;
+    if (sl.mode === "transit") {
+      text =
+        r.name + ": " + r.minutes[sl.key] +
+        " min by bus and rail, walking included. Drawn " + drawn + ".";
+    } else {
+      const cond = sl.capturedAt
+        ? r.minutes[sl.key] + " min in " + sl.label.toLowerCase() + " traffic"
+        : r.minutes[sl.key] + " min at free flow";
+      const fastMi = r.fastMiles && r.fastMiles[sl.id];
+      text =
+        r.name + ": fastest route " + cond +
+        (fastMi ? " over " + fastMi + " miles" : "") + ". ";
+      if (r.alt) {
+        text +=
+          "The shortest route, " + r.alt.miles + " miles, takes " +
+          r.alt.minutes[sl.id] + " min. ";
+      }
+      text += "Drawn " + drawn + ".";
     }
-    text += "Drawn " + drawn.replace("drawn ", "") + ".";
     readout.textContent = text;
   }
 
@@ -619,20 +681,21 @@
   }
 
   const table = document.getElementById("routes");
+  const colLabel = (s) => (s.mode === "transit" ? "Transit" : s.label);
   function renderTable() {
     const head =
       "<thead><tr><th>Route</th><th class=num>Miles</th>" +
-      slices.map((s) => `<th class=num>${s.label}</th>`).join("") +
-      `<th class=num>Drawn (${slices[active].label.toLowerCase()})</th></tr></thead>`;
+      slices.map((s) => `<th class=num>${colLabel(s)}</th>`).join("") +
+      `<th class=num>Drawn (${colLabel(slices[active]).toLowerCase()})</th></tr></thead>`;
     const body = routes
       .map((r, i) => {
         const mins = slices
-          .map((s) => `<td class=num>${r.minutes[s.id]} min</td>`)
+          .map((s) => `<td class=num>${r.minutes[s.key]} min</td>`)
           .join("");
         return (
           `<tr data-i="${i}" class="${i === activeRoute ? "sel" : ""}">` +
           `<td>${r.name}</td><td class=num>${r.miles}</td>${mins}` +
-          `<td class=num>${drawnText(r.factor[slices[active].id])}</td></tr>`
+          `<td class=num>${drawnText(r.factor[slices[active].key])}</td></tr>`
         );
       })
       .join("");
@@ -644,7 +707,10 @@
 
   function setView(i) {
     active = i;
-    viewBtns.forEach((b, k) => b.classList.toggle("on", k === i));
+    const sliceId = slices[i].id;
+    viewBtns.forEach((b, k) =>
+      b.classList.toggle("on", modes[activeMode].slices[k].id === sliceId),
+    );
     renderTable();
     renderMeta();
     renderReadout();
@@ -669,6 +735,6 @@
     });
   });
   selectRoute(0);
-  setView(0);
+  setMode(0);
 </script>
 </html>

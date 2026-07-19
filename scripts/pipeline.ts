@@ -9,7 +9,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { FREEFLOW } from "../src/types.ts";
+import { TRANSIT_SLICES } from "../src/transit/slices.ts";
+import { dataFileExists } from "../src/lib/data.ts";
+import { FREEFLOW, type Mode } from "../src/types.ts";
 import { main as generateGrid } from "./generateGrid.ts";
 import { main as fetchOsm } from "./fetchOsm.ts";
 import { main as fetchWater } from "./fetchWater.ts";
@@ -38,9 +40,21 @@ export async function main(): Promise<void> {
     .filter((f) => f.startsWith("traffic-") && f.endsWith(".json"))
     .map((f) => f.slice("traffic-".length, -".json".length));
 
-  for (const slice of [FREEFLOW, ...captured.sort()]) {
-    await fetchMatrix({ slice });
-    await embed({ slice });
+  const plan: Array<[Mode, string]> = [
+    ...[FREEFLOW, ...captured.sort()].map((s): [Mode, string] => ["drive", s]),
+  ];
+  // Transit builds only when the feeds have been fetched (npm run gtfs).
+  if (
+    fs.existsSync(path.join(root, "data", "gtfs")) &&
+    dataFileExists(path.join(root, "data", "osm.json"))
+  ) {
+    for (const s of TRANSIT_SLICES) {
+      plan.push(["transit", s.id]);
+    }
+  }
+  for (const [mode, slice] of plan) {
+    await fetchMatrix({ mode, slice });
+    await embed({ mode, slice });
   }
   await buildViewer();
 }

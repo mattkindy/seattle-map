@@ -25,7 +25,10 @@ interface ViewerAnchor {
 }
 
 interface ViewerPayload {
-  slices: Array<{ id: string; label: string; anchors: ViewerAnchor[] }>;
+  modes: Array<{
+    id: string;
+    slices: Array<{ id: string; label: string; anchors: ViewerAnchor[] }>;
+  }>;
   routes: Array<{ name: string; path: Record<string, Array<[number, number]>> }>;
   basemap: {
     water: Array<Array<[number, number]>>;
@@ -41,7 +44,8 @@ export async function main(): Promise<void> {
   if (!payload.basemap) {
     throw new Error("no basemap in docs/embedding.js; run the pipeline first");
   }
-  const slice = payload.slices[payload.slices.length - 1];
+  const drive = payload.modes.find((m) => m.id === "drive") ?? payload.modes[0];
+  const slice = drive.slices[drive.slices.length - 1];
 
   // Same displacement warp as the viewer, evaluated at full stretch:
   // each vertex moves by the inverse-distance-weighted displacement of

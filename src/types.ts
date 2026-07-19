@@ -25,6 +25,11 @@ export interface Grid {
 // a capture from a speed provider at some moment.
 export const FREEFLOW = "freeflow";
 
+// Travel modes. Drive slices are traffic conditions; transit slices are
+// departure contexts (src/transit/slices.ts).
+export type Mode = "drive" | "transit";
+export const MODES: Mode[] = ["drive", "transit"];
+
 export interface TrafficFile {
   slice: string;
   label: string;
@@ -34,7 +39,7 @@ export interface TrafficFile {
 }
 
 export interface MatrixFile {
-  mode: "drive";
+  mode: Mode;
   provider: string;
   slice: string;
   /** Speed provider the slice came from; null for freeflow. */
@@ -52,6 +57,7 @@ export interface EmbeddedAnchor extends Anchor {
 
 export interface EmbeddingFile {
   provider: string;
+  mode: Mode;
   slice: string;
   traffic: string | null;
   stress: number;
