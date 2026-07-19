@@ -298,7 +298,7 @@ export async function main(): Promise<void> {
     };
     const base = buildGraph(osm.elements);
     const { mask } = largestScc(base);
-    snap = makeSnapper(base, mask);
+    snap = makeSnapper(base, mask, true);
     graphs = new Map(
       ordered.map((slice) => {
         const readings = readingsOf.get(slice);

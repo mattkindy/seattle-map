@@ -36,6 +36,8 @@ export interface RoadGraph {
   head: Int32Array;
   /** Edge traversal time in seconds. */
   weight: Float64Array;
+  /** 1 when the node touches a road that is not a motorway carriageway. */
+  local: Uint8Array;
 }
 
 const MPH = 0.44704; // m/s per mph
@@ -132,6 +134,7 @@ export function buildGraph(elements: OsmElement[]): RoadGraph {
     edgeW.push(len);
   }
 
+  const localFlag: number[] = [];
   for (const el of elements) {
     if (el.type !== "way" || !el.nodes || el.nodes.length < 2) {
       continue;
@@ -140,6 +143,11 @@ export function buildGraph(elements: OsmElement[]): RoadGraph {
     if (!DRIVABLE.has(tags.highway)) {
       continue;
     }
+    // Motorway carriageways are one-way and access-controlled; a trip
+    // never starts or ends standing on one. Everything else counts as
+    // ground the snapper may target.
+    const isLocal =
+      tags.highway !== "motorway" && tags.highway !== "motorway_link";
     const speed = parseMaxspeed(tags.maxspeed, tags.highway) * MPH;
     const oneway =
       tags.oneway === "yes" ||
@@ -156,6 +164,10 @@ export function buildGraph(elements: OsmElement[]): RoadGraph {
       }
       const u = idx(a);
       const v = idx(bId);
+      if (isLocal) {
+        localFlag[u] = 1;
+        localFlag[v] = 1;
+      }
       const before = edgeW.length;
       if (!reversed) {
         addEdge(u, v);
@@ -188,6 +200,11 @@ export function buildGraph(elements: OsmElement[]): RoadGraph {
     weight[p] = edgeW[e];
   }
 
+  const local = new Uint8Array(n);
+  for (let i = 0; i < n; i++) {
+    local[i] = localFlag[i] ? 1 : 0;
+  }
+
   return {
     n,
     lat: Float64Array.from(lats),
@@ -195,6 +212,7 @@ export function buildGraph(elements: OsmElement[]): RoadGraph {
     offset,
     head,
     weight,
+    local,
   };
 }
 
@@ -389,6 +407,7 @@ export function largestScc(graph: RoadGraph): { mask: Uint8Array; size: number }
 export function makeSnapper(
   graph: RoadGraph,
   mask?: Uint8Array,
+  preferLocal = false,
 ): (la: number, lo: number) => number {
   const cell = 0.004; // ~300 m
   const buckets = new Map<string, number[]>();
@@ -396,6 +415,13 @@ export function makeSnapper(
     `${Math.floor(la / cell)},${Math.floor(lo / cell)}`;
   for (let i = 0; i < graph.n; i++) {
     if (mask && !mask[i]) {
+      continue;
+    }
+    // With preferLocal, motorway-only nodes never enter the index: a
+    // point snapped onto a one-way carriageway can only be left at the
+    // next interchange, which draws (and times) a detour no driver
+    // would make.
+    if (preferLocal && !graph.local[i]) {
       continue;
     }
     const k = key(graph.lat[i], graph.lng[i]);
@@ -568,7 +594,7 @@ export function driveMatrix(
 ): (number | null)[][] {
   const { mask, size } = largestScc(graph);
   log(`road: largest connected component has ${size} of ${graph.n} nodes\n`);
-  const snap = makeSnapper(graph, mask);
+  const snap = makeSnapper(graph, mask, true);
   const nodeOf = anchors.map((a) => snap(a.lat, a.lng));
   const n = anchors.length;
   const seconds: (number | null)[][] = Array.from({ length: n }, () =>
