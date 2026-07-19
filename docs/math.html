@@ -293,6 +293,20 @@
         theory guarantees stress never increases; 150 rounds are enough
         for this data.
       </p>
+      <p>
+        The transit map changes this step in two ways. First, each
+        pair's error is weighted by <code>1/&delta;&sup2;</code>, so a
+        10-minute pair drawn 5 minutes wrong costs as much as an
+        80-minute pair drawn 40 minutes wrong. Transit times run from
+        minutes to nearly two hours, and without the weighting the
+        longest pairs dominate and bend the neighborhoods out of shape.
+        Second, the starting arrangement is geography itself, scaled
+        into time units, instead of classical MDS. A network built
+        around a few spines leaves whole districts free to swivel
+        without changing any pairwise distance, and the settling keeps
+        whatever swivel its starting point had. Starting from
+        geography, there is none to keep.
+      </p>
     </div>
   </details>
 
@@ -428,7 +442,11 @@
         the residual as a fraction of the total. The free-flow map
         fits at 0.124, the Friday evening map at 0.111. Congestion
         makes the times more uniform, and more uniform distances flatten
-        into two dimensions with less error. Each anchor's dot radius
+        into two dimensions with less error. The transit map fits at
+        0.377 by this measure, and honestly so: a network of spines and
+        transfers is much further from flat than a street grid, and the
+        number reports the unweighted residual even though the transit
+        settling optimizes the weighted one. Each anchor's dot radius
         scales with its share of the residual.
       </p>
       <p>
@@ -446,11 +464,14 @@
 
   <h2>A note on the data</h2>
   <p>
-    The transit map uses the same five steps with a different Step 2:
-    each pair is routed over the King County Metro and Sound Transit
-    timetables (RAPTOR, the standard timetable algorithm), with walks
-    to and from stops over the street network. A pair's time is the
-    better of riding and walking.
+    The transit map uses the same five steps with two substitutions.
+    In Step 2, each pair is routed over the King County Metro and Sound
+    Transit timetables (RAPTOR, the standard timetable algorithm), with
+    walks to and from stops over the street network; a pair's time is
+    the better of riding and walking. In Step 3, the settling weights
+    each pair's error by its size and starts from geography rather than
+    from the one-step formula, for the reasons in that step's
+    mathematics note.
   </p>
   <p>
     The street map comes from
