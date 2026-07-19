@@ -37,6 +37,31 @@
   .fs { font: 600 22px system-ui, sans-serif; fill: var(--ink); }
   .fsoft { font: 20px system-ui, sans-serif; fill: var(--soft); }
   .fhot { font: 600 20px system-ui, sans-serif; fill: var(--hot); }
+  details.deep {
+    margin: 4px 0 26px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--card);
+    font: 14px/1.6 system-ui, sans-serif;
+  }
+  details.deep summary {
+    cursor: pointer;
+    padding: 10px 14px;
+    font-weight: 600;
+    color: var(--soft);
+    list-style-position: inside;
+  }
+  details.deep[open] summary { border-bottom: 1px solid var(--line); }
+  details.deep .body { padding: 12px 14px 4px; }
+  details.deep p { margin: 0 0 12px; }
+  details.deep code {
+    font: 12.5px ui-monospace, "sf mono", menlo, monospace;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 1px 4px;
+    white-space: nowrap;
+  }
   @media (max-width: 480px) {
     body { font-size: 16px; }
     main { padding: 24px 12px 48px; }
@@ -57,7 +82,7 @@
     we start by covering the city with a honeycomb of about 700 sample
     points, one every 500 meters, and throwing out the ones that land
     in water. From here on, everything happens to these points. The
-    rest of the city just moves along with its nearest points.
+    rest of the city moves with its nearest points.
   </p>
   <figure>
     <svg viewBox="0 0 700 260">
@@ -80,18 +105,49 @@
       neighbors, which makes the stretching easy to see later.
     </figcaption>
   </figure>
+  <details class="deep">
+    <summary>The mathematics of the grid</summary>
+    <div class="body">
+      <p>
+        Rows are spaced 0.0045 degrees of latitude apart, about 500
+        meters. A degree of longitude shrinks with latitude by a factor
+        of cos&#8202;&phi;, so columns are spaced
+        <code>0.0045 / cos(&phi;) &times; 2/&radic;3</code> degrees to make the
+        triangles near-equilateral on the ground, with every other row
+        offset by half a column.
+      </p>
+      <p>
+        Deciding which points are in water takes eleven hand-drawn
+        polygons that outline the sound, the lake, and the smaller
+        waterways. Each point is tested with the standard ray-casting
+        trick: draw a line from the point out to the edge of the map
+        and count how many polygon borders it crosses. An odd count
+        means the point is inside. 733 points survive.
+      </p>
+      <p>
+        The mesh you see on the map connects each surviving point to
+        its neighbors within about 1.6 grid steps. If a connecting line
+        touches water, it is deleted, with one exception: lines that
+        pass within 350 meters of a named bridge are kept, because
+        there the crossing exists. Each bridge keeps only its two
+        shortest crossings so the deck reads as a deck and not a fan of
+        diagonals.
+      </p>
+    </div>
+  </details>
 
   <h2>Step 2: Time every pair</h2>
   <p>
-    Next, every pair of points gets a driving time. The current version
-    routes each drive over Seattle's real street network, taken from
-    OpenStreetMap, with every road driven at its posted speed limit.
-    (Traffic comes later.) With 700 points that is about 270,000
-    numbers, kept in one big table: a row for the start, a column for
-    the destination. One wrinkle: driving from A to B rarely takes
-    exactly as long as driving back, one-way streets alone see to that,
-    and a drawing can only show one distance between two points, so we
-    average the two directions.
+    Next, every pair of points gets a driving time. Each drive is
+    routed over Seattle's street network, taken from OpenStreetMap,
+    with every road driven at its posted speed limit; the Friday
+    evening view then slows each road by congestion measured near the
+    sample points. With 700 points that is about 270,000 numbers per
+    view, kept in one big table: a row for the start, a column for the
+    destination. One wrinkle: driving from A to B rarely takes exactly
+    as long as driving back, one-way streets alone make the two
+    directions differ, and a drawing can only show one distance between
+    two points, so we average the two directions.
   </p>
   <figure>
     <svg viewBox="0 0 700 360">
@@ -118,6 +174,43 @@
       happened yet.
     </figcaption>
   </figure>
+  <details class="deep">
+    <summary>The mathematics of the routing</summary>
+    <div class="body">
+      <p>
+        The street network becomes a directed graph with about 136,000
+        nodes and 248,000 edges. An edge's weight is the time it takes
+        to drive it: the segment's length divided by its speed limit.
+        Length comes from the haversine formula. The speed limit comes
+        from the road's <code>maxspeed</code> tag in OpenStreetMap, and
+        when a road has no tag, a default for its class fills in, 25
+        mph for a residential street, 60 for a motorway. A one-way
+        street contributes an edge in one direction only.
+      </p>
+      <p>
+        Street data is full of stranded fragments: parking aisles,
+        gated stubs, driveways. Routing between them would report
+        infinite times, so the router first finds the largest set of
+        mutually reachable nodes (Kosaraju's algorithm) and stays
+        inside it. That set holds 98% of the network. Each sample point
+        then snaps to its nearest node in the set, and one run of
+        Dijkstra's algorithm gives the time from that point to every
+        other node. 733 runs fill the whole table in a few seconds.
+      </p>
+      <p>
+        Traffic enters as a per-edge multiplier. TomTom reports, for
+        the road nearest a sample point, how long it currently takes
+        compared to free flow. A reading of 1.4 means 40% slower than
+        an open road. Each edge of the graph averages the four nearest
+        readings within 1.5 km, weighting closer readings more, and the
+        multiplier is capped at 4&times; so one stalled sensor cannot
+        distort a whole corridor. Where no reading is close, the road keeps
+        its free-flow time. Nothing else in the pipeline changes with
+        traffic; the only difference downstream is the numbers in the
+        table.
+      </p>
+    </div>
+  </details>
 
   <h2>Step 3: Let springs draw the city</h2>
   <p>
@@ -133,9 +226,9 @@
     Mathematicians call this <strong>multidimensional scaling</strong>.
     One formula (classical MDS) produces a good starting arrangement in
     a single step. A repeated adjustment (SMACOF) then plays out the
-    settling: for each point, the computer works out where it would
-    have to sit for each of its distances to come out right, then moves
-    it to the average of those positions. Every round brings the
+    settling: for each point, the computer calculates the position that
+    would make each of its distances come out right, then moves the
+    point to the average of those positions. Every round brings the
     picture a little closer to the times.
   </p>
   <figure>
@@ -171,6 +264,36 @@
       the travel times.
     </figcaption>
   </figure>
+  <details class="deep">
+    <summary>The mathematics of the settling</summary>
+    <div class="body">
+      <p>
+        Classical MDS is the one-step start. Square the time matrix
+        entrywise to get <code>D&#8317;&sup2;&#8318;</code>, then double-center it:
+        <code>B = -&frac12; J D&#8317;&sup2;&#8318; J</code> with
+        <code>J = I - (1/n) 1 1&#7488;</code>. If the times were distances
+        between points in some space, B would be exactly the matrix of
+        dot products of those points, and its top two eigenvectors,
+        scaled by the square roots of their eigenvalues, would be the
+        best 2D coordinates. The eigenvectors come from power
+        iteration: multiply a random vector by B repeatedly until it
+        stops turning, then deflate and repeat for the second.
+      </p>
+      <p>
+        Drive times are not distances in any flat space, so that answer
+        is only a good start. SMACOF (stress majorization) refines it.
+        The target is raw stress,
+        <code>&Sigma; (d&#7522;&#11388;(X) - &delta;&#7522;&#11388;)&sup2;</code>: drawn distance minus
+        measured time, squared, summed over pairs. Each round applies
+        the Guttman transform: point i moves to the average, over
+        partners j, of the position that would make the pair's drawn
+        distance exactly &delta;&#7522;&#11388;, which is
+        <code>x&#11388; + &delta;&#7522;&#11388; (x&#7522; - x&#11388;) / d&#7522;&#11388;</code>. Majorization
+        theory guarantees stress never increases; 150 rounds are enough
+        for this data.
+      </p>
+    </div>
+  </details>
 
   <h2>Step 4: Turn it right side up</h2>
   <p>
@@ -178,8 +301,8 @@
     information about direction. It comes out turned at a random angle,
     and sometimes mirrored, because turning or flipping a picture
     changes none of the distances inside it. So the last step turns,
-    flips, and slides the layout until it lines up with the real map as
-    well as it can. The technique is called Procrustes alignment, and
+    flips, and slides the layout until it lines up with the geographic
+    map as closely as possible. The technique is called Procrustes alignment, and
     it is why north stays up and the result still looks like Seattle.
   </p>
   <figure>
@@ -206,12 +329,38 @@
       stretching itself is never touched.
     </figcaption>
   </figure>
+  <details class="deep">
+    <summary>The mathematics of the alignment</summary>
+    <div class="body">
+      <p>
+        This is orthogonal Procrustes with uniform scaling. Center the
+        layout X and the geographic reference G on their means, then
+        accumulate the four cross-covariance sums
+        <code>s&#8339;&#8339; = &Sigma; g&#8339; x&#8339;</code>,
+        <code>s&#8339;&#8340; = &Sigma; g&#8339; x&#8340;</code>, and so on. In 2D the
+        rotation that best matches X to G has the closed form
+        <code>&theta; = atan2(s&#8340;&#8339; - s&#8339;&#8340;, s&#8339;&#8339; + s&#8340;&#8340;)</code>.
+        When the determinant of the cross-covariance is negative the
+        best fit includes a mirror flip, so the layout is reflected and
+        the angle re-derived, keeping whichever version correlates
+        better with geography.
+      </p>
+      <p>
+        The scale is the least-squares ratio
+        <code>&Sigma; &#10216;R x&#7522;, g&#7522;&#10217; / &Sigma; |x&#7522;|&sup2;</code>. Every
+        transform used here (rotation, reflection, translation, uniform
+        scale) changes all distances by the same factor. The map exists
+        to show relative distortion, and relative distortion is exactly
+        what these transforms leave alone.
+      </p>
+    </div>
+  </details>
 
   <h2>Step 5: Show where the map falls short</h2>
   <p>
-    One problem remains. Driving times can make demands that no flat
-    drawing can meet, and Seattle's crossings are full of them. A small
-    example shows why.
+    One problem remains. Some sets of driving times cannot be drawn on
+    a flat page at all, and Seattle's crossings produce them
+    constantly. A small example shows why.
   </p>
   <p>
     Picture a drawbridge with three neighborhoods around it: one north
@@ -229,8 +378,8 @@
     matches all the times at once.
   </p>
   <p>
-    So the layout settles for a best effort, and we record how far off
-    each point's distances ended up. That number is called
+    So the fitting stops at the closest arrangement there is, and we
+    record how far off each point's distances ended up. That number is called
     <strong>stress</strong>, and on the main map it is drawn as dot
     size: the bigger the dot, the more the times around that spot had
     to be bent to fit the page. The biggest dots sit at the water
@@ -269,15 +418,46 @@
       leftover error becomes the dot sizes on the main map.
     </figcaption>
   </figure>
+  <details class="deep">
+    <summary>The mathematics of the error</summary>
+    <div class="body">
+      <p>
+        The reported number is Kruskal's stress-1:
+        <code>&radic;(&Sigma;(d&#7522;&#11388; - &delta;&#7522;&#11388;)&sup2; / &Sigma;&delta;&#7522;&#11388;&sup2;)</code>,
+        the residual as a fraction of the total. The free-flow view
+        fits at 0.135, the Friday evening view at 0.119. Congestion
+        makes the times more uniform, and more uniform distances flatten
+        into two dimensions with less error. Each anchor's dot radius
+        scales with its share of the residual.
+      </p>
+      <p>
+        Here is the bridge example with exact numbers: three points on a
+        circle of radius 10 are pairwise farthest when they form an equilateral
+        triangle, with side <code>10&radic;3 &asymp; 17.3</code>. The measured
+        20s exceed that bound, so no flat drawing satisfies all six
+        numbers; the excess spreads across the neighborhood as stress.
+        Drive-time data is full of such conflicts, which is also why the
+        embedding targets 2D and not, say, 3D: the goal is a readable
+        map, and the residual is shown rather than hidden.
+      </p>
+    </div>
+  </details>
 
   <h2>A note on the data</h2>
   <p>
-    The current site routes over the real road network at free-flow
-    speed limits: exact geometry, no traffic. Adding congestion, or
-    swapping in measured times from a routing service, changes only
-    Step 2; every other step stays the same. The routing engine and the
-    full pipeline are about 800 lines of plain JavaScript, published in
-    the <a href="https://github.com/mattkindy/seattle-map">repository</a>.
+    The street map comes from
+    <a href="https://www.openstreetmap.org/about">OpenStreetMap</a>,
+    the volunteer-built world map; it supplies each road's shape, its
+    speed limit, and its one-way rules (&copy; OpenStreetMap
+    contributors).
+    The Friday evening congestion comes from
+    <a href="https://developer.tomtom.com/traffic-api/documentation/tomtom-maps/traffic-flow/flow-segment-data">TomTom's
+    traffic flow service</a>, which reports live speeds from vehicle
+    probes. Swapping either source, or adding a new hour of the day,
+    changes only Step 2; every other step stays the same. The routing
+    engine and the full pipeline are about a thousand lines of
+    dependency-free TypeScript, published in the
+    <a href="https://github.com/mattkindy/seattle-map">repository</a>.
   </p>
 </main>
 </html>

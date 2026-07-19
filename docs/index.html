@@ -12,12 +12,14 @@
     --water: #b8d4e8;
     --mesh: #999;
     --hot: #d0021b;
+    --accent: #3a6ea5;
     --card: #fff;
     --line: #e2e2e2;
   }
   @media (prefers-color-scheme: dark) {
     :root { --bg: #121517; --ink: #e6e6e6; --soft: #9a9a9a; --water: #23384a;
-            --mesh: #667; --card: #1a1e22; --line: #2c333a; --hot: #ff5a4e; }
+            --mesh: #667; --card: #1a1e22; --line: #2c333a; --hot: #ff5a4e;
+            --accent: #6f9fd0; }
   }
   * { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
@@ -54,24 +56,52 @@
   .mapwrap { max-width: 820px; margin: 8px auto 4px; }
   .controls {
     display: flex; gap: 12px; align-items: center; justify-content: center;
-    font: 13px/1 system-ui, sans-serif; color: var(--soft); margin: 0 0 6px;
+    flex-wrap: wrap;
+    font: 13px/1 system-ui, sans-serif; color: var(--soft); margin: 0 0 10px;
   }
-  input[type="range"] { width: min(340px, 62vw); accent-color: var(--hot); }
+  .views {
+    display: flex; border: 1px solid var(--line); border-radius: 999px;
+    overflow: hidden;
+  }
+  .views button {
+    font: 600 12px/1 system-ui, sans-serif;
+    color: var(--soft);
+    background: none; border: 0; padding: 7px 14px; cursor: pointer;
+  }
+  .views button.on { background: var(--ink); color: var(--bg); }
+  input[type="range"] { width: min(300px, 56vw); accent-color: var(--hot); }
   svg.map { width: 100%; height: auto; display: block; }
   .anchor { fill: var(--ink); opacity: 0.5; }
   .edge { stroke: var(--mesh); stroke-width: 0.6; opacity: 0.4; fill: none; }
   .bridge { stroke: var(--hot); stroke-width: 1.5; opacity: 0.9; fill: none; }
+  .route-line { stroke: var(--accent); stroke-width: 2.5; opacity: 0.95; fill: none; }
+  .route-end { fill: none; stroke: var(--accent); stroke-width: 2.5; }
   .label { font: 11px system-ui, sans-serif; fill: var(--ink); opacity: 0.95;
            paint-order: stroke; stroke: var(--bg); stroke-width: 3; }
   .caption {
     font: 13px/1.5 system-ui, sans-serif; color: var(--soft);
     border-top: 1px solid var(--line); padding-top: 8px; margin: 10px 0 34px;
   }
+  table.routes {
+    width: 100%; border-collapse: collapse;
+    font: 13px/1.45 system-ui, sans-serif;
+    margin: 6px 0 8px;
+  }
+  .routes th {
+    text-align: left; font-weight: 600; color: var(--soft);
+    border-bottom: 1px solid var(--line); padding: 6px 8px 6px 0;
+  }
+  .routes td { padding: 7px 8px 7px 0; border-bottom: 1px solid var(--line); }
+  .routes th.num, .routes td.num { text-align: right; }
+  .routes tbody tr { cursor: pointer; }
+  .routes tr.sel td { font-weight: 700; }
+  .routes tr.sel td:first-child { color: var(--accent); }
   @media (max-width: 480px) {
     body { font-size: 16px; }
     main { padding: 28px 12px 56px; }
     h1 { font-size: 30px; }
     .dek { font-size: 18px; }
+    table.routes { font-size: 12px; }
   }
   .methodology {
     font: 13px/1.6 system-ui, sans-serif;
@@ -89,7 +119,7 @@
     the driver's seat, and Seattle changes shape: the bridges stretch,
     and the far side of the water gets farther.
   </p>
-  <p class="byline">Times are free-flow drives at posted speed limits over Seattle's road network. No traffic yet. See the note below.</p>
+  <p class="byline">Two ways to measure the drive: posted speed limits on an open road, and live traffic captured on a Friday evening. See the note below.</p>
 
   <p>
     Ballard and Magnolia face each other across Salmon Bay, close
@@ -102,22 +132,33 @@
   <p>
     The map below redraws the city with driving time as its measure of
     distance. Drag the slider and watch Seattle move from the map you
-    know to the shape of its drives.
+    know to the shape of its drives. The buttons switch between an
+    empty-roads city and the same city at Friday rush.
   </p>
 
   <div class="mapwrap">
     <div class="controls">
+      <div class="views" id="views"></div>
       <span>the map</span>
       <input id="morph" type="range" min="0" max="1" step="0.01" value="0" />
       <span>the drive</span>
     </div>
     <svg id="map" class="map" viewBox="0 0 760 900"></svg>
-    <p class="caption" id="meta">
-      Each dot is a sample point. Red lines are the bridges. As the
-      city stretches, a dot grows where the drawn distances around it
-      least match the driving times.
-    </p>
+    <p class="caption" id="meta"></p>
   </div>
+
+  <h2>Five drives</h2>
+  <p>
+    The table puts numbers on five familiar trips. Minutes average the
+    two directions. The last column shows how the current view redraws
+    the pair compared with their straight-line distance. Tap a row to
+    see the pair on the map.
+  </p>
+  <table class="routes" id="routes"></table>
+  <p class="caption">
+    Free-flow minutes assume every road at its posted limit. Friday
+    evening minutes apply measured traffic to the same roads.
+  </p>
 
   <h2>What to look for</h2>
   <p>
@@ -133,12 +174,12 @@
     lengthen to match.
   </p>
   <p>
-    The distortion is already substantial at free-flow speeds.
-    North-south trips on Interstate 5 compress by about a third, while
-    east-west trips that have to cross water stretch by as much as half.
-    Traffic is not in the model yet, and it falls hardest on the
-    east-west surface streets, so the city will widen further once it
-    lands.
+    Then switch the view to Friday evening. Every trip gets longer, the
+    average by about a fifth, but not evenly. Congestion cuts the
+    freeway advantage, so north-south trips lose part of their
+    compression, while the crossings and the routes into downtown
+    stretch further. The two views are the same city measured at two
+    different hours.
   </p>
   <p>
     Some dots grow as you drag. A flat map cannot match every driving
@@ -159,23 +200,32 @@
     and that difference is what an ordinary map cannot show.
   </p>
   <p>
-    A computer routed roughly
-    270,000 point-to-point drives over the street network and
-    arranged about 700 points so that the distances between them match
-    the times as closely as possible. The result is what Seattle looks
-    like when distance means time. <a href="./math.html">How we made
-    this map</a> walks through the method, with pictures.
+    A computer routed roughly 270,000 point-to-point drives per view
+    over the street network and arranged about 700 points so that the
+    distances between them match the times as closely as possible. The
+    result is what Seattle looks like when distance means time.
+    <a href="./math.html">How we made this map</a> walks through the
+    method, with pictures.
   </p>
 
   <div class="methodology">
     <p>
-      <strong>About the data.</strong> The driving times here are
-      free-flow: each pair of points is routed over Seattle's road
-      network (OpenStreetMap) with every road driven at its posted speed
-      limit and no traffic. That captures the geometry exactly, water,
-      bridges, and one-way streets included, but it understates the
-      east-west delay that congestion adds. Traffic is the next step,
-      and it slots into the same pipeline. Code and method:
+      <strong>About the data.</strong> The street map comes from
+      <a href="https://www.openstreetmap.org/about">OpenStreetMap</a>,
+      the volunteer-built world map; it supplies each road's shape, its
+      posted speed limit, and its one-way rules (&copy; OpenStreetMap
+      contributors). Both views route every pair of sample points over
+      that network, water, bridges, and one-way streets included. The
+      free-flow view drives each road at its posted limit. The Friday
+      evening view slows the same roads by live congestion from
+      <a href="https://developer.tomtom.com/traffic-api/documentation/tomtom-maps/traffic-flow/flow-segment-data">TomTom's
+      traffic flow service</a>, which measures current speeds from
+      vehicle probes; near each sample point it reports how much longer
+      the nearest road is taking than at free flow, and that slowdown
+      is spread onto nearby roads. The capture stamp is under the map.
+      Two limits worth knowing: speeds are sampled at points, so a
+      slowdown measured on a freeway can spread onto the streets beside
+      it, and points with no road nearby stay at free flow. Code and method:
       <a href="https://github.com/mattkindy/seattle-map">github.com/mattkindy/seattle-map</a>.
     </p>
   </div>
@@ -184,12 +234,19 @@
 <script type="module">
   const svg = document.getElementById("map");
   const NS = "http://www.w3.org/2000/svg";
-  const { anchors } = window.EMBEDDING;
+  const { slices, edges, routes } = window.EMBEDDING;
+
+  let active = 0;
+  let activeRoute = 0;
 
   const kmLng = 111.32 * Math.cos((47.61 * Math.PI) / 180);
-  const geo = anchors.map((a) => [a.lng * kmLng, a.lat * 111.32]);
-  const tsp = anchors.map((a) => [a.tx, a.ty]);
-  const all = geo.concat(tsp);
+  const base = slices[0].anchors;
+  const geo = base.map((a) => [a.lng * kmLng, a.lat * 111.32]);
+  const tsps = slices.map((s) => s.anchors.map((a) => [a.tx, a.ty]));
+
+  // One shared scale across every view, so switching views never
+  // rescales the page.
+  const all = geo.concat(...tsps);
   const xs = all.map((p) => p[0]);
   const ys = all.map((p) => p[1]);
   const pad = 2;
@@ -219,7 +276,7 @@
   ];
   const landmarkRefs = LANDMARKS.map(([name, lat, lng]) => {
     const g = [lng * kmLng, lat * 111.32];
-    const scored = anchors
+    const scored = base
       .map((a, i) => ({ i, d: (a.lat - lat) ** 2 + (a.lng - lng) ** 2 }))
       .sort((p, q) => p.d - q.d)
       .slice(0, 4);
@@ -228,16 +285,25 @@
     return { name, g, refs };
   });
 
-  const edges = window.EMBEDDING.edges;
   const edgeEls = edges.map(([, , kind]) => {
     const el = document.createElementNS(NS, "line");
     el.setAttribute("class", kind === 1 ? "bridge" : "edge");
     svg.appendChild(el);
     return el;
   });
-  const dotEls = anchors.map(() => {
+  const routeLine = document.createElementNS(NS, "line");
+  routeLine.setAttribute("class", "route-line");
+  svg.appendChild(routeLine);
+  const dotEls = base.map(() => {
     const el = document.createElementNS(NS, "circle");
     el.setAttribute("class", "anchor");
+    svg.appendChild(el);
+    return el;
+  });
+  const endEls = [0, 1].map(() => {
+    const el = document.createElementNS(NS, "circle");
+    el.setAttribute("class", "route-end");
+    el.setAttribute("r", 6);
     svg.appendChild(el);
     return el;
   });
@@ -250,7 +316,9 @@
   });
 
   function render(t) {
-    const pos = anchors.map((a, i) => {
+    const tsp = tsps[active];
+    const stressOf = slices[active].anchors;
+    const pos = base.map((a, i) => {
       const g = px(geo[i]);
       const m = px(tsp[i]);
       return [g[0] + (m[0] - g[0]) * t, g[1] + (m[1] - g[1]) * t];
@@ -262,27 +330,107 @@
       el.setAttribute("x2", pos[j][0]);
       el.setAttribute("y2", pos[j][1]);
     });
-    anchors.forEach((a, i) => {
+    base.forEach((a, i) => {
       const el = dotEls[i];
       el.setAttribute("cx", pos[i][0]);
       el.setAttribute("cy", pos[i][1]);
-      el.setAttribute("r", 1.5 + t * Math.min(a.stress / 120, 3));
+      el.setAttribute("r", 1.5 + t * Math.min(stressOf[i].stress / 120, 3));
+    });
+    const r = routes[activeRoute];
+    routeLine.setAttribute("x1", pos[r.ai][0]);
+    routeLine.setAttribute("y1", pos[r.ai][1]);
+    routeLine.setAttribute("x2", pos[r.bi][0]);
+    routeLine.setAttribute("y2", pos[r.bi][1]);
+    [r.ai, r.bi].forEach((idx, k) => {
+      endEls[k].setAttribute("cx", pos[idx][0]);
+      endEls[k].setAttribute("cy", pos[idx][1]);
     });
     landmarkRefs.forEach(({ g, refs }, k) => {
-      const base = px(g);
+      const bpt = px(g);
       let dx = 0, dy = 0;
       for (const { i, w } of refs) {
         const gp = px(geo[i]);
         dx += w * (pos[i][0] - gp[0]);
         dy += w * (pos[i][1] - gp[1]);
       }
-      labelEls[k].setAttribute("x", base[0] + dx + 6);
-      labelEls[k].setAttribute("y", base[1] + dy - 4);
+      labelEls[k].setAttribute("x", bpt[0] + dx + 6);
+      labelEls[k].setAttribute("y", bpt[1] + dy - 4);
     });
+  }
+
+  function drawnText(f) {
+    if (f < 0.97) return Math.round((1 - f) * 100) + "% closer";
+    if (f > 1.03) return Math.round((f - 1) * 100) + "% farther";
+    return "close to true";
+  }
+
+  function captureText(slice) {
+    if (!slice.capturedAt) return "Roads at their posted limits, no traffic.";
+    const d = new Date(slice.capturedAt);
+    const fmt = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Los_Angeles",
+      weekday: "long", month: "long", day: "numeric",
+      hour: "numeric", minute: "2-digit",
+    });
+    return `Live traffic captured ${fmt.format(d)} Pacific time.`;
+  }
+
+  const meta = document.getElementById("meta");
+  function renderMeta() {
+    meta.textContent =
+      "Each dot is a sample point. Red lines are the bridges; the blue " +
+      "line is the selected drive. As the city stretches, a dot grows " +
+      "where the drawn distances around it least match the driving " +
+      "times. " + captureText(slices[active]);
+  }
+
+  const viewsEl = document.getElementById("views");
+  const viewBtns = slices.map((slice, i) => {
+    const b = document.createElement("button");
+    b.textContent = slice.label;
+    b.addEventListener("click", () => setView(i));
+    viewsEl.appendChild(b);
+    return b;
+  });
+
+  const table = document.getElementById("routes");
+  function renderTable() {
+    const head =
+      "<thead><tr><th>Route</th><th class=num>Miles</th>" +
+      slices.map((s) => `<th class=num>${s.label}</th>`).join("") +
+      "<th class=num>On this view</th></tr></thead>";
+    const body = routes
+      .map((r, i) => {
+        const mins = slices
+          .map((s) => `<td class=num>${r.minutes[s.id]} min</td>`)
+          .join("");
+        return (
+          `<tr data-i="${i}" class="${i === activeRoute ? "sel" : ""}">` +
+          `<td>${r.name}</td><td class=num>${r.miles}</td>${mins}` +
+          `<td class=num>${drawnText(r.factor[slices[active].id])}</td></tr>`
+        );
+      })
+      .join("");
+    table.innerHTML = head + "<tbody>" + body + "</tbody>";
+    table.querySelectorAll("tbody tr").forEach((tr) => {
+      tr.addEventListener("click", () => {
+        activeRoute = Number(tr.dataset.i);
+        renderTable();
+        render(Number(slider.value));
+      });
+    });
+  }
+
+  function setView(i) {
+    active = i;
+    viewBtns.forEach((b, k) => b.classList.toggle("on", k === i));
+    renderTable();
+    renderMeta();
+    render(Number(slider.value));
   }
 
   const slider = document.getElementById("morph");
   slider.addEventListener("input", () => render(Number(slider.value)));
-  render(0);
+  setView(0);
 </script>
 </html>
