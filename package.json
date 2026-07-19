@@ -13,7 +13,8 @@
     "viewer": "npx -y tsx scripts/buildViewer.ts",
     "pipeline": "npx -y tsx scripts/pipeline.ts",
     "typecheck": "tsc --noEmit",
-    "water": "npx -y tsx scripts/fetchWater.ts"
+    "water": "npx -y tsx scripts/fetchWater.ts",
+    "sharecard": "npx -y tsx scripts/buildShareCard.ts"
   },
   "devDependencies": {
     "@types/node": "^22",
