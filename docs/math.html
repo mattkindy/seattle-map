@@ -141,9 +141,9 @@
     Next, every pair of points gets a driving time. Each drive is
     routed over Seattle's street network, taken from OpenStreetMap,
     with every road driven at its posted speed limit; the Friday
-    evening view then slows each road by congestion measured near the
-    sample points. With 700 points that is about 270,000 numbers per
-    view, kept in one big table: a row for the start, a column for the
+    evening version then slows each road by congestion measured near
+    the sample points. With 700 points that is about 270,000 numbers
+    per version, kept in one big table: a row for the start, a column for the
     destination. One wrinkle: driving from A to B rarely takes exactly
     as long as driving back, one-way streets alone make the two
     directions differ, and a drawing can only show one distance between
@@ -424,8 +424,8 @@
       <p>
         The reported number is Kruskal's stress-1:
         <code>&radic;(&Sigma;(d&#7522;&#11388; - &delta;&#7522;&#11388;)&sup2; / &Sigma;&delta;&#7522;&#11388;&sup2;)</code>,
-        the residual as a fraction of the total. The free-flow view
-        fits at 0.135, the Friday evening view at 0.119. Congestion
+        the residual as a fraction of the total. The free-flow map
+        fits at 0.135, the Friday evening map at 0.119. Congestion
         makes the times more uniform, and more uniform distances flatten
         into two dimensions with less error. Each anchor's dot radius
         scales with its share of the residual.

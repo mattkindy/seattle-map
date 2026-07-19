@@ -70,6 +70,21 @@
   }
   .views button.on { background: var(--ink); color: var(--bg); }
   input[type="range"] { width: min(300px, 56vw); accent-color: var(--hot); }
+  .chips {
+    display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 8px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .chips button {
+    font: 600 12px/1 system-ui, sans-serif;
+    color: var(--soft); background: none;
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: 7px 12px; cursor: pointer; white-space: nowrap;
+  }
+  .chips button.on { border-color: var(--accent); color: var(--accent); }
+  .readout {
+    font: 600 14px/1.5 system-ui, sans-serif; color: var(--ink);
+    margin: 8px 0 2px;
+  }
   svg.map { width: 100%; height: auto; display: block; }
   .anchor { fill: var(--ink); opacity: 0.5; }
   .edge { stroke: var(--mesh); stroke-width: 0.6; opacity: 0.4; fill: none; }
@@ -143,21 +158,26 @@
       <input id="morph" type="range" min="0" max="1" step="0.01" value="0" />
       <span>the drive</span>
     </div>
+    <div class="chips" id="chips"></div>
     <svg id="map" class="map" viewBox="0 0 760 900"></svg>
+    <p class="readout" id="readout"></p>
     <p class="caption" id="meta"></p>
   </div>
 
   <h2>Five drives</h2>
   <p>
-    The table puts numbers on five familiar trips. Minutes average the
-    two directions. The last column shows how the current view redraws
-    the pair compared with their straight-line distance. Tap a row to
-    see the pair on the map.
+    Ballard and the University District are three miles apart. On open
+    roads the drive takes about nine minutes; on a Friday evening,
+    eleven. Because the trip has to cross the Ship Canal, this map
+    draws the two neighborhoods 38 percent farther apart than geography
+    would. Each row below reads the same way, and tapping one traces
+    its route on the map.
   </p>
   <table class="routes" id="routes"></table>
   <p class="caption">
-    Free-flow minutes assume every road at its posted limit. Friday
-    evening minutes apply measured traffic to the same roads.
+    Minutes are the average of the two directions. Free flow drives
+    every road at its posted limit; Friday evening slows the same roads
+    by measured traffic.
   </p>
 
   <h2>What to look for</h2>
@@ -174,11 +194,11 @@
     lengthen to match.
   </p>
   <p>
-    Then switch the view to Friday evening. Every trip gets longer, the
+    Then switch the map to Friday evening. Every trip gets longer, the
     average by about a fifth, but not evenly. Congestion cuts the
     freeway advantage, so north-south trips lose part of their
     compression, while the crossings and the routes into downtown
-    stretch further. The two views are the same city measured at two
+    stretch further. The two maps are the same city measured at two
     different hours.
   </p>
   <p>
@@ -200,8 +220,8 @@
     and that difference is what an ordinary map cannot show.
   </p>
   <p>
-    A computer routed roughly 270,000 point-to-point drives per view
-    over the street network and arranged about 700 points so that the
+    A computer routed roughly 270,000 point-to-point drives for each
+    version of the map over the street network and arranged about 700 points so that the
     distances between them match the times as closely as possible. The
     result is what Seattle looks like when distance means time.
     <a href="./math.html">How we made this map</a> walks through the
@@ -214,10 +234,10 @@
       <a href="https://www.openstreetmap.org/about">OpenStreetMap</a>,
       the volunteer-built world map; it supplies each road's shape, its
       posted speed limit, and its one-way rules (&copy; OpenStreetMap
-      contributors). Both views route every pair of sample points over
+      contributors). Both versions of the map route every pair of sample points over
       that network, water, bridges, and one-way streets included. The
-      free-flow view drives each road at its posted limit. The Friday
-      evening view slows the same roads by live congestion from
+      free-flow map drives each road at its posted limit. The Friday
+      evening map slows the same roads by live congestion from
       <a href="https://developer.tomtom.com/traffic-api/documentation/tomtom-maps/traffic-flow/flow-segment-data">TomTom's
       traffic flow service</a>, which measures current speeds from
       vehicle probes; near each sample point it reports how much longer
@@ -291,7 +311,7 @@
     svg.appendChild(el);
     return el;
   });
-  const routeLine = document.createElementNS(NS, "line");
+  const routeLine = document.createElementNS(NS, "polyline");
   routeLine.setAttribute("class", "route-line");
   svg.appendChild(routeLine);
   const dotEls = base.map(() => {
@@ -337,10 +357,11 @@
       el.setAttribute("r", 1.5 + t * Math.min(stressOf[i].stress / 120, 3));
     });
     const r = routes[activeRoute];
-    routeLine.setAttribute("x1", pos[r.ai][0]);
-    routeLine.setAttribute("y1", pos[r.ai][1]);
-    routeLine.setAttribute("x2", pos[r.bi][0]);
-    routeLine.setAttribute("y2", pos[r.bi][1]);
+    const mesh = (r.path && r.path[slices[active].id]) || [r.ai, r.bi];
+    routeLine.setAttribute(
+      "points",
+      mesh.map((i) => pos[i].join(",")).join(" "),
+    );
     [r.ai, r.bi].forEach((idx, k) => {
       endEls[k].setAttribute("cx", pos[idx][0]);
       endEls[k].setAttribute("cy", pos[idx][1]);
@@ -379,9 +400,9 @@
   function renderMeta() {
     meta.textContent =
       "Each dot is a sample point. Red lines are the bridges; the blue " +
-      "line is the selected drive. As the city stretches, a dot grows " +
-      "where the drawn distances around it least match the driving " +
-      "times. " + captureText(slices[active]);
+      "line traces the selected drive's fastest route. As the city " +
+      "stretches, a dot grows where the drawn distances around it " +
+      "least match the driving times. " + captureText(slices[active]);
   }
 
   const viewsEl = document.getElementById("views");
@@ -393,12 +414,47 @@
     return b;
   });
 
+  const readout = document.getElementById("readout");
+  function renderReadout() {
+    const r = routes[activeRoute];
+    const sl = slices[active];
+    const f = r.factor[sl.id];
+    const drawn =
+      f < 0.97
+        ? "drawn " + Math.round((1 - f) * 100) + "% closer than geography"
+        : f > 1.03
+          ? "drawn " + Math.round((f - 1) * 100) + "% farther than geography"
+          : "drawn near its geographic distance";
+    const cond = sl.capturedAt
+      ? r.minutes[sl.id] + " min in " + sl.label.toLowerCase() + " traffic"
+      : r.minutes[sl.id] + " min at free flow";
+    readout.textContent =
+      r.name + ": " + r.miles + " miles, " + cond + ", " + drawn + ".";
+  }
+
+  const chipsEl = document.getElementById("chips");
+  const chipBtns = routes.map((r, i) => {
+    const b = document.createElement("button");
+    b.textContent = r.name;
+    b.addEventListener("click", () => selectRoute(i));
+    chipsEl.appendChild(b);
+    return b;
+  });
+
+  function selectRoute(i) {
+    activeRoute = i;
+    chipBtns.forEach((b, k) => b.classList.toggle("on", k === i));
+    renderTable();
+    renderReadout();
+    render(Number(slider.value));
+  }
+
   const table = document.getElementById("routes");
   function renderTable() {
     const head =
       "<thead><tr><th>Route</th><th class=num>Miles</th>" +
       slices.map((s) => `<th class=num>${s.label}</th>`).join("") +
-      "<th class=num>On this view</th></tr></thead>";
+      `<th class=num>Drawn (${slices[active].label.toLowerCase()})</th></tr></thead>`;
     const body = routes
       .map((r, i) => {
         const mins = slices
@@ -413,11 +469,7 @@
       .join("");
     table.innerHTML = head + "<tbody>" + body + "</tbody>";
     table.querySelectorAll("tbody tr").forEach((tr) => {
-      tr.addEventListener("click", () => {
-        activeRoute = Number(tr.dataset.i);
-        renderTable();
-        render(Number(slider.value));
-      });
+      tr.addEventListener("click", () => selectRoute(Number(tr.dataset.i)));
     });
   }
 
@@ -426,11 +478,13 @@
     viewBtns.forEach((b, k) => b.classList.toggle("on", k === i));
     renderTable();
     renderMeta();
+    renderReadout();
     render(Number(slider.value));
   }
 
   const slider = document.getElementById("morph");
   slider.addEventListener("input", () => render(Number(slider.value)));
+  selectRoute(0);
   setView(0);
 </script>
 </html>

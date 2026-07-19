@@ -1,14 +1,30 @@
 // buildViewer.ts: assemble docs/embedding.js for the site from every
 // embedded slice (freeflow baseline plus each captured traffic slice),
 // the shared mesh edges, and a table of example routes with per-slice
-// minutes and distortion factors. The site is static; this file is the
-// whole data hand-off, inlined so docs/index.html opens from file:// and
-// serves on Pages.
+// minutes, distortion factors, and the driving route itself. The site is
+// static; this file is the whole data hand-off, inlined so
+// docs/index.html opens from file:// and serves on Pages.
+//
+// Each route's drawn path is the shortest-time drive over the road
+// network, projected onto the anchor mesh (every road node maps to its
+// nearest anchor, consecutive repeats collapse). The projection lets the
+// path morph with the embedding. Routes can differ per slice when
+// congestion changes the fastest road.
 
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
+import {
+  applyTraffic,
+  buildGraph,
+  dijkstraPath,
+  largestScc,
+  makeSnapper,
+  type OsmElement,
+  type RoadGraph,
+} from "../src/roadRouter.ts";
+import type { Reading } from "../src/traffic/index.ts";
 import {
   FREEFLOW,
   type EmbeddingFile,
@@ -43,7 +59,7 @@ export async function main(): Promise<void> {
     .readdirSync(dataDir)
     .filter((f) => f.startsWith("embedding-") && f.endsWith(".json"))
     .map((f) => f.slice("embedding-".length, -".json".length));
-  // Freeflow baseline first, then captures in capture order.
+  // Freeflow baseline first, then captures.
   const ordered = [
     ...sliceIds.filter((s) => s === FREEFLOW),
     ...sliceIds.filter((s) => s !== FREEFLOW).sort(),
@@ -65,6 +81,7 @@ export async function main(): Promise<void> {
     return best;
   };
 
+  const readingsOf = new Map<string, Reading[]>();
   const slices = ordered.map((slice) => {
     const emb = JSON.parse(
       fs.readFileSync(path.join(dataDir, `embedding-${slice}.json`), "utf8"),
@@ -77,6 +94,7 @@ export async function main(): Promise<void> {
       ) as TrafficFile;
       label = traffic.label;
       capturedAt = traffic.capturedAt;
+      readingsOf.set(slice, traffic.readings);
     }
     return {
       id: slice,
@@ -99,6 +117,47 @@ export async function main(): Promise<void> {
     ]),
   );
 
+  // Road graphs for route geometry, one per slice. Skipped (straight
+  // fallback) when no OSM data is present, e.g. a synthetic-only run.
+  const osmPath = path.join(dataDir, "osm.json");
+  let graphs: Map<string, RoadGraph> | null = null;
+  let snap: ((la: number, lo: number) => number) | null = null;
+  if (fs.existsSync(osmPath)) {
+    const osm = JSON.parse(fs.readFileSync(osmPath, "utf8")) as {
+      elements: OsmElement[];
+    };
+    const base = buildGraph(osm.elements);
+    const { mask } = largestScc(base);
+    snap = makeSnapper(base, mask);
+    graphs = new Map(
+      ordered.map((slice) => {
+        const readings = readingsOf.get(slice);
+        return [slice, readings ? applyTraffic(base, readings) : base];
+      }),
+    );
+  }
+
+  // Project a road-node path onto the anchor mesh: nearest anchor per
+  // node, consecutive repeats collapsed, endpoints pinned.
+  function meshPath(
+    graph: RoadGraph,
+    nodes: number[],
+    ai: number,
+    bi: number,
+  ): number[] {
+    const out: number[] = [ai];
+    for (const u of nodes) {
+      const a = nearestAnchor(graph.lat[u], graph.lng[u]);
+      if (a !== out[out.length - 1]) {
+        out.push(a);
+      }
+    }
+    if (out[out.length - 1] !== bi) {
+      out.push(bi);
+    }
+    return out;
+  }
+
   const routes = ROUTES.map(({ name, a, b }) => {
     const ai = nearestAnchor(a[0], a[1]);
     const bi = nearestAnchor(b[0], b[1]);
@@ -110,6 +169,7 @@ export async function main(): Promise<void> {
     );
     const minutes: Record<string, number> = {};
     const factor: Record<string, number> = {};
+    const routePath: Record<string, number[]> = {};
     for (const slice of ordered) {
       const seconds = matrices.get(slice) as (number | null)[][];
       const there = seconds[ai][bi];
@@ -124,6 +184,19 @@ export async function main(): Promise<void> {
       factor[slice] = Number(
         (Math.hypot(qa.tx - qb.tx, qa.ty - qb.ty) / geoKm).toFixed(2),
       );
+      let mesh = [ai, bi];
+      const graph = graphs?.get(slice);
+      if (graph && snap) {
+        const nodes = dijkstraPath(
+          graph,
+          snap(pa.lat, pa.lng),
+          snap(pb.lat, pb.lng),
+        );
+        if (nodes.length > 0) {
+          mesh = meshPath(graph, nodes, ai, bi);
+        }
+      }
+      routePath[slice] = mesh;
     }
     return {
       name,
@@ -132,6 +205,7 @@ export async function main(): Promise<void> {
       miles: Number((geoKm / KM_PER_MILE).toFixed(1)),
       minutes,
       factor,
+      path: routePath,
     };
   });
 

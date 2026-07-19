@@ -446,11 +446,21 @@ export function makeSnapper(
 // Dijkstra with a binary heap. Returns the seconds to every node.
 // ------------------------------------------------------------------
 
+export interface DijkstraOptions {
+  /** Filled with each node's predecessor for path reconstruction. */
+  prev?: Int32Array;
+  /** Stop as soon as this node is settled. */
+  target?: number;
+}
+
 export function dijkstra(
   graph: RoadGraph,
   source: number,
   dist: Float64Array,
+  opts: DijkstraOptions = {},
 ): Float64Array {
+  const { prev, target } = opts;
+  prev?.fill(-1);
   dist.fill(Infinity);
   dist[source] = 0;
   const heapDist: number[] = [0];
@@ -506,16 +516,45 @@ export function dijkstra(
     if (d > dist[u]) {
       continue;
     }
+    if (u === target) {
+      break;
+    }
     for (let e = graph.offset[u]; e < graph.offset[u + 1]; e++) {
       const v = graph.head[e];
       const nd = d + graph.weight[e];
       if (nd < dist[v]) {
         dist[v] = nd;
+        if (prev) {
+          prev[v] = u;
+        }
         push(nd, v);
       }
     }
   }
   return dist;
+}
+
+// Shortest-time route between two nodes, as the node sequence from
+// source to target. Empty when unreachable.
+export function dijkstraPath(
+  graph: RoadGraph,
+  source: number,
+  target: number,
+): number[] {
+  const dist = new Float64Array(graph.n);
+  const prev = new Int32Array(graph.n);
+  dijkstra(graph, source, dist, { prev, target });
+  if (!Number.isFinite(dist[target])) {
+    return [];
+  }
+  const path: number[] = [];
+  for (let u = target; u !== -1; u = prev[u]) {
+    path.push(u);
+    if (u === source) {
+      break;
+    }
+  }
+  return path.reverse();
 }
 
 // ------------------------------------------------------------------
