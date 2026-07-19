@@ -6,10 +6,10 @@
 // docs/index.html opens from file:// and serves on Pages.
 //
 // Each route's drawn path is the shortest-time drive over the road
-// network, projected onto the anchor mesh (every road node maps to its
-// nearest anchor, consecutive repeats collapse). The projection lets the
-// path morph with the embedding. Routes can differ per slice when
-// congestion changes the fastest road.
+// network, emitted as downsampled road geometry; the page warps those
+// vertices through the anchor displacement field, the same warp the
+// basemap uses. Routes can differ per slice when congestion changes the
+// fastest road.
 
 import { createHash } from "node:crypto";
 import fs from "node:fs";
@@ -50,6 +50,173 @@ const ROUTES: Array<{ name: string; a: [number, number]; b: [number, number] }> 
 const KM_PER_DEG_LAT = 111.32;
 const kmPerDegLng = 111.32 * Math.cos((47.61 * Math.PI) / 180);
 const KM_PER_MILE = 1.60934;
+
+// Basemap street tiers by highway class. Tier drives stroke width in
+// the viewer; classes absent here (residential and below) stay off the
+// basemap to keep the payload small.
+const STREET_TIER: Record<string, number> = {
+  motorway: 0,
+  motorway_link: 0,
+  trunk: 0,
+  trunk_link: 0,
+  primary: 1,
+  primary_link: 1,
+  secondary: 2,
+  tertiary: 3,
+};
+// Drop vertices closer than this to the last kept one; street shape at
+// map scale survives far coarser sampling than routing needs.
+const SIMPLIFY_M = 90;
+// Water ring segments longer than this get midpoints inserted so the
+// outline bends with the warp instead of cutting straight across it.
+const DENSIFY_M = 300;
+
+function metersBetween(aLat: number, aLng: number, bLat: number, bLng: number): number {
+  return Math.hypot(
+    (aLat - bLat) * KM_PER_DEG_LAT * 1000,
+    (aLng - bLng) * kmPerDegLng * 1000,
+  );
+}
+
+type LatLng = [number, number];
+
+interface Basemap {
+  water: LatLng[][];
+  streets: Array<{ t: number; p: LatLng[] }>;
+}
+
+function extractBasemap(
+  osmElements: OsmElement[],
+  waterRings: Array<{ ring: Array<[number, number]> }>,
+): Basemap {
+  const nodeLat = new Map<number, number>();
+  const nodeLng = new Map<number, number>();
+  for (const el of osmElements) {
+    if (el.type === "node") {
+      nodeLat.set(el.id, el.lat);
+      nodeLng.set(el.id, el.lon);
+    }
+  }
+  // 4 decimal places is ~11 m, plenty at basemap scale.
+  const rnd = (x: number): number => Number(x.toFixed(4));
+
+  // OSM splits roads at every junction, so a single avenue arrives as
+  // dozens of short ways. Collect raw node chains per tier, stitch
+  // chains that share an endpoint into long polylines, then simplify.
+  // Without stitching, most ways are shorter than the simplify
+  // tolerance and the payload drowns in per-fragment overhead.
+  const rawByTier = new Map<number, number[][]>();
+  for (const el of osmElements) {
+    if (el.type !== "way" || !el.nodes || el.nodes.length < 2) {
+      continue;
+    }
+    const t = STREET_TIER[el.tags?.highway ?? ""];
+    if (t === undefined) {
+      continue;
+    }
+    let chains = rawByTier.get(t);
+    if (!chains) {
+      chains = [];
+      rawByTier.set(t, chains);
+    }
+    chains.push(el.nodes.filter((id) => nodeLat.has(id)));
+  }
+
+  function stitch(chains: number[][]): number[][] {
+    // endpoint node id -> indexes of chains that start or end there
+    const at = new Map<number, number[]>();
+    chains.forEach((c, i) => {
+      for (const end of [c[0], c[c.length - 1]]) {
+        let list = at.get(end);
+        if (!list) {
+          at.set(end, (list = []));
+        }
+        list.push(i);
+      }
+    });
+    const used = new Uint8Array(chains.length);
+    const out: number[][] = [];
+    for (let i = 0; i < chains.length; i++) {
+      if (used[i]) {
+        continue;
+      }
+      used[i] = 1;
+      const chain = [...chains[i]];
+      // Grow at the tail, then at the head, while an unused chain
+      // continues from the current endpoint.
+      for (const dir of [1, -1] as const) {
+        for (;;) {
+          const end = dir === 1 ? chain[chain.length - 1] : chain[0];
+          const next = (at.get(end) ?? []).find((j) => !used[j]);
+          if (next === undefined) {
+            break;
+          }
+          used[next] = 1;
+          let seg = chains[next];
+          if (dir === 1) {
+            if (seg[0] !== end) {
+              seg = [...seg].reverse();
+            }
+            chain.push(...seg.slice(1));
+          } else {
+            if (seg[seg.length - 1] !== end) {
+              seg = [...seg].reverse();
+            }
+            chain.unshift(...seg.slice(0, -1));
+          }
+        }
+      }
+      out.push(chain);
+    }
+    return out;
+  }
+
+  const streets: Basemap["streets"] = [];
+  for (const [t, chains] of rawByTier) {
+    for (const chain of stitch(chains)) {
+      const p: LatLng[] = [];
+      let lastLat = NaN;
+      let lastLng = NaN;
+      for (let k = 0; k < chain.length; k++) {
+        const la = nodeLat.get(chain[k]) as number;
+        const lo = nodeLng.get(chain[k]) as number;
+        const isEnd = k === chain.length - 1;
+        if (
+          p.length === 0 ||
+          isEnd ||
+          metersBetween(lastLat, lastLng, la, lo) >= SIMPLIFY_M
+        ) {
+          p.push([rnd(la), rnd(lo)]);
+          lastLat = la;
+          lastLng = lo;
+        }
+      }
+      if (p.length >= 2) {
+        streets.push({ t, p });
+      }
+    }
+  }
+
+  // Water rings arrive as [lng, lat]; emit [lat, lng] like everything
+  // else, with long segments densified so they bend under the warp.
+  const water: LatLng[][] = waterRings.map(({ ring }) => {
+    const out: LatLng[] = [];
+    for (let i = 0; i < ring.length; i++) {
+      const [aLng, aLat] = ring[i];
+      const [bLng, bLat] = ring[(i + 1) % ring.length];
+      out.push([rnd(aLat), rnd(aLng)]);
+      const len = metersBetween(aLat, aLng, bLat, bLng);
+      const cuts = Math.floor(len / DENSIFY_M);
+      for (let c = 1; c <= cuts; c++) {
+        const f = c / (cuts + 1);
+        out.push([rnd(aLat + (bLat - aLat) * f), rnd(aLng + (bLng - aLng) * f)]);
+      }
+    }
+    return out;
+  });
+
+  return { water, streets };
+}
 
 export async function main(): Promise<void> {
   const grid = JSON.parse(
@@ -118,11 +285,13 @@ export async function main(): Promise<void> {
     ]),
   );
 
-  // Road graphs for route geometry, one per slice. Skipped (straight
-  // fallback) when no OSM data is present, e.g. a synthetic-only run.
+  // Road graphs for route geometry, one per slice, plus the basemap
+  // streets. Skipped (straight fallback, no basemap) when no OSM data
+  // is present, e.g. a synthetic-only run.
   const osmPath = path.join(dataDir, "osm.json");
   let graphs: Map<string, RoadGraph> | null = null;
   let snap: ((la: number, lo: number) => number) | null = null;
+  let basemap: Basemap | null = null;
   if (fs.existsSync(osmPath)) {
     const osm = JSON.parse(fs.readFileSync(osmPath, "utf8")) as {
       elements: OsmElement[];
@@ -136,39 +305,33 @@ export async function main(): Promise<void> {
         return [slice, readings ? applyTraffic(base, readings) : base];
       }),
     );
+    basemap = extractBasemap(osm.elements, grid.water ?? []);
   }
 
-  // Project a road-node path onto the anchor mesh: nearest anchor per
-  // node, consecutive repeats collapsed, endpoints pinned. The
-  // nearest-anchor assignment can flicker between two anchors along a
-  // road that runs between them, leaving a-b-a stutters; collapse those
-  // until none remain.
-  function meshPath(
-    graph: RoadGraph,
-    nodes: number[],
-    ai: number,
-    bi: number,
-  ): number[] {
-    const out: number[] = [ai];
-    for (const u of nodes) {
-      const a = nearestAnchor(graph.lat[u], graph.lng[u]);
-      if (a !== out[out.length - 1]) {
-        out.push(a);
+  // Route geometry as geographic coordinates, downsampled. The viewer
+  // warps these vertices with the same displacement field as the
+  // basemap, so the route follows real roads at the geographic end of
+  // the slider and bends with the city at the other. (An earlier
+  // version projected the path onto the anchor mesh; the nearest-anchor
+  // assignment wandered off the corridor near freeways.)
+  function geoPath(graph: RoadGraph, nodes: number[]): LatLng[] {
+    const out: LatLng[] = [];
+    let lastLat = NaN;
+    let lastLng = NaN;
+    nodes.forEach((u, i) => {
+      const la = graph.lat[u];
+      const lo = graph.lng[u];
+      const isEnd = i === nodes.length - 1;
+      if (
+        out.length === 0 ||
+        isEnd ||
+        metersBetween(lastLat, lastLng, la, lo) >= 180
+      ) {
+        out.push([Number(la.toFixed(5)), Number(lo.toFixed(5))]);
+        lastLat = la;
+        lastLng = lo;
       }
-    }
-    if (out[out.length - 1] !== bi) {
-      out.push(bi);
-    }
-    let changed = true;
-    while (changed) {
-      changed = false;
-      for (let i = out.length - 3; i >= 0; i--) {
-        if (i + 2 < out.length && out[i] === out[i + 2]) {
-          out.splice(i + 1, 2);
-          changed = true;
-        }
-      }
-    }
+    });
     return out;
   }
 
@@ -183,7 +346,7 @@ export async function main(): Promise<void> {
     );
     const minutes: Record<string, number> = {};
     const factor: Record<string, number> = {};
-    const routePath: Record<string, number[]> = {};
+    const routePath: Record<string, LatLng[]> = {};
     for (const slice of ordered) {
       const seconds = matrices.get(slice) as (number | null)[][];
       const there = seconds[ai][bi];
@@ -198,7 +361,10 @@ export async function main(): Promise<void> {
       factor[slice] = Number(
         (Math.hypot(qa.tx - qb.tx, qa.ty - qb.ty) / geoKm).toFixed(2),
       );
-      let mesh = [ai, bi];
+      let pts: LatLng[] = [
+        [pa.lat, pa.lng],
+        [pb.lat, pb.lng],
+      ];
       const graph = graphs?.get(slice);
       if (graph && snap) {
         const nodes = dijkstraPath(
@@ -207,10 +373,10 @@ export async function main(): Promise<void> {
           snap(pb.lat, pb.lng),
         );
         if (nodes.length > 0) {
-          mesh = meshPath(graph, nodes, ai, bi);
+          pts = geoPath(graph, nodes);
         }
       }
-      routePath[slice] = mesh;
+      routePath[slice] = pts;
     }
     return {
       name,
@@ -223,7 +389,7 @@ export async function main(): Promise<void> {
     };
   });
 
-  const payload = { edges: grid.edges, slices, routes };
+  const payload = { edges: grid.edges, slices, routes, basemap };
   const body = `window.EMBEDDING = ${JSON.stringify(payload)};\n`;
   fs.writeFileSync(path.join(root, "docs", "embedding.js"), body);
 

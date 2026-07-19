@@ -16,6 +16,8 @@ export interface Grid {
   count: number;
   anchors: Anchor[];
   edges: MeshEdge[];
+  /** Coarse water outlines as [lng, lat] rings, for the basemap. */
+  water?: Array<{ name: string; ring: Array<[number, number]> }>;
 }
 
 // A time slice names one traffic condition. "freeflow" is the reserved

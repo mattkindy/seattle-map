@@ -37,8 +37,11 @@ file the next one reads:
    slowdowns.
 5. `scripts/embed.ts` turns a matrix into 2D positions (classical MDS,
    SMACOF refinement, Procrustes alignment; `src/embedding.ts`).
-6. `scripts/buildViewer.ts` bundles every slice plus a table of example
-   routes into `docs/embedding.js` for the static site in `docs/`.
+6. `scripts/buildViewer.ts` bundles every slice, a table of example
+   routes with their road geometry, and a simplified street-and-water
+   basemap into `docs/embedding.js` for the static site in `docs/`.
+   The page warps basemap and routes through the anchor displacement
+   field; an X-ray toggle shows the sampling grid itself.
 
 Data sources are behind provider interfaces (`src/traffic`,
 `src/matrix`): each source is one file implementing a shared contract,
@@ -76,6 +79,4 @@ further. Fit quality (stress-1): 0.135 free-flow, 0.119 with traffic.
 
 - More slices: weekday morning rush, midday, late night.
 - More modes: transit via GTFS is the interesting one, then bike.
-- A basemap warped through the mesh (thin-plate spline over anchor
-  displacement) so streets and shorelines bend with the times.
 - Measured drive times from a routing API as another matrix provider.

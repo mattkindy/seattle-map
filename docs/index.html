@@ -13,13 +13,14 @@
     --mesh: #999;
     --hot: #d0021b;
     --accent: #3a6ea5;
+    --road: #a3a8ad;
     --card: #fff;
     --line: #e2e2e2;
   }
   @media (prefers-color-scheme: dark) {
     :root { --bg: #121517; --ink: #e6e6e6; --soft: #9a9a9a; --water: #23384a;
             --mesh: #667; --card: #1a1e22; --line: #2c333a; --hot: #ff5a4e;
-            --accent: #6f9fd0; }
+            --accent: #6f9fd0; --road: #4d5860; }
   }
   * { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
@@ -53,7 +54,13 @@
     margin: 40px 0 10px;
   }
   a { color: inherit; }
-  .mapwrap { max-width: 820px; margin: 8px auto 4px; }
+  .mapwrap {
+    width: min(94vw, 940px);
+    position: relative;
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 8px 0 4px;
+  }
   .controls {
     display: flex; gap: 12px; align-items: center; justify-content: center;
     flex-wrap: wrap;
@@ -69,6 +76,13 @@
     background: none; border: 0; padding: 7px 14px; cursor: pointer;
   }
   .views button.on { background: var(--ink); color: var(--bg); }
+  .xbtn {
+    font: 600 12px/1 system-ui, sans-serif;
+    color: var(--soft); background: none;
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: 7px 14px; cursor: pointer;
+  }
+  .xbtn.on { border-color: var(--hot); color: var(--hot); }
   input[type="range"] { width: min(300px, 56vw); accent-color: var(--hot); }
   .chips {
     display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 8px;
@@ -86,9 +100,18 @@
     margin: 8px 0 2px;
   }
   svg.map { width: 100%; height: auto; display: block; }
-  .anchor { fill: var(--ink); opacity: 0.5; }
-  .edge { stroke: var(--mesh); stroke-width: 0.6; opacity: 0.4; fill: none; }
-  .bridge { stroke: var(--hot); stroke-width: 1.5; opacity: 0.9; fill: none; }
+  .water { fill: var(--water); opacity: 0.7; stroke: none; }
+  .street { fill: none; stroke: var(--road); stroke-linecap: round; }
+  .street.t0 { stroke-width: 1.8; opacity: 0.9; }
+  .street.t1 { stroke-width: 1.1; opacity: 0.75; }
+  .street.t2 { stroke-width: 0.7; opacity: 0.6; }
+  .street.t3 { stroke-width: 0.45; opacity: 0.45; }
+  #base { transition: opacity 0.2s; }
+  svg.xray #base { opacity: 0.14; }
+  .anchor { fill: var(--ink); opacity: 0.5; visibility: hidden; }
+  .edge { stroke: var(--mesh); stroke-width: 0.6; opacity: 0.4; fill: none; visibility: hidden; }
+  .bridge { stroke: var(--hot); stroke-width: 1.5; opacity: 0.9; fill: none; visibility: hidden; }
+  svg.xray .anchor, svg.xray .edge, svg.xray .bridge { visibility: visible; }
   .route-line { stroke: var(--accent); stroke-width: 2.5; opacity: 0.95; fill: none; }
   .route-end { fill: none; stroke: var(--accent); stroke-width: 2.5; }
   .label { font: 11px system-ui, sans-serif; fill: var(--ink); opacity: 0.95;
@@ -158,6 +181,7 @@
       <span>the map</span>
       <input id="morph" type="range" min="0" max="1" step="0.01" value="0" />
       <span>the drive</span>
+      <button id="xray" class="xbtn">X-ray</button>
     </div>
     <div class="chips" id="chips"></div>
     <svg id="map" class="map" viewBox="0 0 760 900"></svg>
@@ -191,8 +215,8 @@
   <p>
     The bridges stretch. A trip across the Ship Canal or the Duwamish
     has to reach a crossing and back, so the two banks sit a little
-    farther apart in minutes than in miles, and the red bridge lines
-    lengthen to match.
+    farther apart in minutes than in miles, and the canal widens on the
+    page as they pull apart.
   </p>
   <p>
     Then switch the map to Friday evening. Every trip gets longer, the
@@ -203,10 +227,10 @@
     different hours.
   </p>
   <p>
-    Some dots grow as you drag. A flat map cannot match every driving
-    time at once, so some drawn distances end up off. A dot's size shows
-    how far off the distances around it ended up: the map's error bars,
-    drawn in place.
+    The X-ray button shows the machinery: the honeycomb of sample
+    points the map is built from. A flat map cannot match every driving
+    time at once, and a dot's size shows how far off the distances
+    around it ended up: the map's error bars, drawn in place.
   </p>
 
   <h2>Why Seattle</h2>
@@ -248,11 +272,11 @@
     </p>
   </div>
 </main>
-<script src="./embedding.js?v=23f95a97"></script>
+<script src="./embedding.js?v=87df246a"></script>
 <script type="module">
   const svg = document.getElementById("map");
   const NS = "http://www.w3.org/2000/svg";
-  const { slices, edges, routes } = window.EMBEDDING;
+  const { slices, edges, routes, basemap } = window.EMBEDDING;
 
   let active = 0;
   let activeRoute = 0;
@@ -303,6 +327,87 @@
     return { name, g, refs };
   });
 
+  // Basemap warp: every street and shoreline vertex moves by the
+  // displacement of its nearest anchors (inverse-distance weights over
+  // the 6 closest), the same interpolation the landmark labels use.
+  const cellKm = 1.2;
+  const hash = new Map();
+  geo.forEach((g, i) => {
+    const key = Math.floor(g[0] / cellKm) + "," + Math.floor(g[1] / cellKm);
+    let b = hash.get(key);
+    if (!b) hash.set(key, (b = []));
+    b.push(i);
+  });
+  function nearestAnchors(x, y, k) {
+    const ci = Math.floor(x / cellKm);
+    const cj = Math.floor(y / cellKm);
+    const found = [];
+    for (let r = 0; r <= 3; r++) {
+      for (let a = ci - r; a <= ci + r; a++) {
+        for (let b = cj - r; b <= cj + r; b++) {
+          if (Math.max(Math.abs(a - ci), Math.abs(b - cj)) !== r) continue;
+          const bkt = hash.get(a + "," + b);
+          if (!bkt) continue;
+          for (const i of bkt) {
+            const dx = geo[i][0] - x;
+            const dy = geo[i][1] - y;
+            found.push([dx * dx + dy * dy, i]);
+          }
+        }
+      }
+      if (found.length >= k && r >= 1) break;
+    }
+    found.sort((p, q) => p[0] - q[0]);
+    return found.slice(0, k);
+  }
+  const disp = tsps.map((tsp) =>
+    tsp.map((p, i) => [p[0] - geo[i][0], p[1] - geo[i][1]]),
+  );
+  function projectVertex(la, lo) {
+    const x = lo * kmLng;
+    const y = la * 111.32;
+    const near = nearestAnchors(x, y, 6);
+    const acc = slices.map(() => [0, 0]);
+    let ws = 0;
+    for (const [d2, i] of near) {
+      const w = 1 / (d2 + 1e-6);
+      ws += w;
+      disp.forEach((ds, si) => {
+        acc[si][0] += w * ds[i][0];
+        acc[si][1] += w * ds[i][1];
+      });
+    }
+    return {
+      g: px([x, y]),
+      w: acc.map((a) => px([x + a[0] / ws, y + a[1] / ws])),
+    };
+  }
+
+  const baseG = document.createElementNS(NS, "g");
+  baseG.setAttribute("id", "base");
+  svg.appendChild(baseG);
+  const waterEls = (basemap ? basemap.water : []).map((ring) => {
+    const el = document.createElementNS(NS, "path");
+    el.setAttribute("class", "water");
+    baseG.appendChild(el);
+    return { el, v: ring.map(([la, lo]) => projectVertex(la, lo)) };
+  });
+  const streetEls = (basemap ? basemap.streets : []).map((st) => {
+    const el = document.createElementNS(NS, "polyline");
+    el.setAttribute("class", "street t" + st.t);
+    baseG.appendChild(el);
+    return { el, v: st.p.map(([la, lo]) => projectVertex(la, lo)) };
+  });
+
+  const routeVerts = routes.map((r) => {
+    const bySlice = {};
+    slices.forEach((sl) => {
+      const pts = (r.path && r.path[sl.id]) || [];
+      bySlice[sl.id] = pts.map(([la, lo]) => projectVertex(la, lo));
+    });
+    return bySlice;
+  });
+
   const edgeEls = edges.map(([, , kind]) => {
     const el = document.createElementNS(NS, "line");
     el.setAttribute("class", kind === 1 ? "bridge" : "edge");
@@ -341,6 +446,21 @@
       const m = px(tsp[i]);
       return [g[0] + (m[0] - g[0]) * t, g[1] + (m[1] - g[1]) * t];
     });
+    const lerp = (v) => {
+      const g = v.g;
+      const w = v.w[active];
+      return (
+        (g[0] + (w[0] - g[0]) * t).toFixed(1) +
+        "," +
+        (g[1] + (w[1] - g[1]) * t).toFixed(1)
+      );
+    };
+    waterEls.forEach(({ el, v }) => {
+      el.setAttribute("d", "M" + v.map(lerp).join("L") + "Z");
+    });
+    streetEls.forEach(({ el, v }) => {
+      el.setAttribute("points", v.map(lerp).join(" "));
+    });
     edges.forEach(([i, j], k) => {
       const el = edgeEls[k];
       el.setAttribute("x1", pos[i][0]);
@@ -354,16 +474,16 @@
       el.setAttribute("cy", pos[i][1]);
       el.setAttribute("r", 1.5 + t * Math.min(stressOf[i].stress / 120, 3));
     });
-    const r = routes[activeRoute];
-    const mesh = (r.path && r.path[slices[active].id]) || [r.ai, r.bi];
-    routeLine.setAttribute(
-      "points",
-      mesh.map((i) => pos[i].join(",")).join(" "),
-    );
-    [r.ai, r.bi].forEach((idx, k) => {
-      endEls[k].setAttribute("cx", pos[idx][0]);
-      endEls[k].setAttribute("cy", pos[idx][1]);
-    });
+    const rv = routeVerts[activeRoute][slices[active].id];
+    if (rv.length) {
+      routeLine.setAttribute("points", rv.map(lerp).join(" "));
+      [rv[0], rv[rv.length - 1]].forEach((v, k) => {
+        const g = v.g;
+        const w = v.w[active];
+        endEls[k].setAttribute("cx", g[0] + (w[0] - g[0]) * t);
+        endEls[k].setAttribute("cy", g[1] + (w[1] - g[1]) * t);
+      });
+    }
     landmarkRefs.forEach(({ g, refs }, k) => {
       const bpt = px(g);
       let dx = 0, dy = 0;
@@ -397,10 +517,11 @@
   const meta = document.getElementById("meta");
   function renderMeta() {
     meta.textContent =
-      "Each dot is a sample point. Red lines are the bridges; the blue " +
-      "line traces the selected drive's fastest route. As the city " +
-      "stretches, a dot grows where the drawn distances around it " +
-      "least match the driving times. " + captureText(slices[active]);
+      "Streets and shorelines bend as the city stretches. The blue " +
+      "line traces the selected drive's fastest route. X-ray reveals " +
+      "the sampling grid underneath: dots grow where the drawn " +
+      "distances least match the driving times. " +
+      captureText(slices[active]);
   }
 
   const viewsEl = document.getElementById("views");
@@ -480,8 +601,21 @@
     render(Number(slider.value));
   }
 
+  const xbtn = document.getElementById("xray");
+  xbtn.addEventListener("click", () => {
+    svg.classList.toggle("xray");
+    xbtn.classList.toggle("on");
+  });
+
   const slider = document.getElementById("morph");
-  slider.addEventListener("input", () => render(Number(slider.value)));
+  let raf = 0;
+  slider.addEventListener("input", () => {
+    if (raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      render(Number(slider.value));
+    });
+  });
   selectRoute(0);
   setView(0);
 </script>

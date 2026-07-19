@@ -304,7 +304,13 @@ export async function main(): Promise<void> {
   }
   const bridgeEdges = edges.filter((e) => e[2] === 1).length;
 
-  const out: Grid = { bounds: BOUNDS, count: anchors.length, anchors, edges };
+  const out: Grid = {
+    bounds: BOUNDS,
+    count: anchors.length,
+    anchors,
+    edges,
+    water: WATER,
+  };
   fs.mkdirSync(path.join(root, "data"), { recursive: true });
   fs.writeFileSync(
     path.join(root, "data", "grid.json"),
