@@ -11,6 +11,7 @@
 // path morph with the embedding. Routes can differ per slice when
 // congestion changes the fastest road.
 
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -138,7 +139,10 @@ export async function main(): Promise<void> {
   }
 
   // Project a road-node path onto the anchor mesh: nearest anchor per
-  // node, consecutive repeats collapsed, endpoints pinned.
+  // node, consecutive repeats collapsed, endpoints pinned. The
+  // nearest-anchor assignment can flicker between two anchors along a
+  // road that runs between them, leaving a-b-a stutters; collapse those
+  // until none remain.
   function meshPath(
     graph: RoadGraph,
     nodes: number[],
@@ -154,6 +158,16 @@ export async function main(): Promise<void> {
     }
     if (out[out.length - 1] !== bi) {
       out.push(bi);
+    }
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (let i = out.length - 3; i >= 0; i--) {
+        if (i + 2 < out.length && out[i] === out[i + 2]) {
+          out.splice(i + 1, 2);
+          changed = true;
+        }
+      }
     }
     return out;
   }
@@ -210,13 +224,25 @@ export async function main(): Promise<void> {
   });
 
   const payload = { edges: grid.edges, slices, routes };
-  fs.writeFileSync(
-    path.join(root, "docs", "embedding.js"),
-    `window.EMBEDDING = ${JSON.stringify(payload)};\n`,
+  const body = `window.EMBEDDING = ${JSON.stringify(payload)};\n`;
+  fs.writeFileSync(path.join(root, "docs", "embedding.js"), body);
+
+  // Stamp the page's script reference with a content hash so browsers
+  // never pair a cached data file with a newer page.
+  const hash = createHash("sha1").update(body).digest("hex").slice(0, 8);
+  const indexPath = path.join(root, "docs", "index.html");
+  const page = fs.readFileSync(indexPath, "utf8");
+  const stamped = page.replace(
+    /src="\.\/embedding\.js[^"]*"/,
+    `src="./embedding.js?v=${hash}"`,
   );
+  if (stamped !== page) {
+    fs.writeFileSync(indexPath, stamped);
+  }
+
   console.log(
     `viewer: ${slices.length} slices (${ordered.join(", ")}), ` +
-      `${routes.length} routes -> docs/embedding.js`,
+      `${routes.length} routes -> docs/embedding.js (v=${hash})`,
   );
 }
 
