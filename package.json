@@ -14,7 +14,8 @@
     "pipeline": "npx -y tsx scripts/pipeline.ts",
     "typecheck": "tsc --noEmit",
     "water": "npx -y tsx scripts/fetchWater.ts",
-    "sharecard": "npx -y tsx scripts/buildShareCard.ts"
+    "sharecard": "npx -y tsx scripts/buildShareCard.ts",
+    "gtfs": "npx -y tsx scripts/fetchGtfs.ts"
   },
   "devDependencies": {
     "@types/node": "^22",
