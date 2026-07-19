@@ -5,10 +5,17 @@
   "type": "module",
   "description": "A time-space cartogram of Seattle, where on-screen distance follows travel time instead of geography.",
   "scripts": {
-    "grid": "node scripts/generateGrid.mjs",
-    "matrix": "node scripts/fetchMatrix.mjs",
-    "embed": "node scripts/embed.mjs",
-    "pipeline": "node scripts/pipeline.mjs",
-    "osm": "node scripts/fetchOsm.mjs"
+    "grid": "npx -y tsx scripts/generateGrid.ts",
+    "osm": "npx -y tsx scripts/fetchOsm.ts",
+    "traffic": "npx -y tsx scripts/fetchTraffic.ts",
+    "matrix": "npx -y tsx scripts/fetchMatrix.ts",
+    "embed": "npx -y tsx scripts/embed.ts",
+    "viewer": "npx -y tsx scripts/buildViewer.ts",
+    "pipeline": "npx -y tsx scripts/pipeline.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "typescript": "^5.7"
   }
 }
